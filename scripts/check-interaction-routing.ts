@@ -1,0 +1,1 @@
+﻿import 'dotenv/config';import{REST}from'discord.js';const rest=new REST({version:'10'}).setToken(process.env.DISCORD_BOT_TOKEN!);const app=await rest.get('/oauth2/applications/@me') as any;console.log('External interaction endpoint configured: '+Boolean(app.interactions_endpoint_url));

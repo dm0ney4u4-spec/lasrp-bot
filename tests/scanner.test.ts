@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import net from 'node:net';
+import { scanEvidence,scanMode } from '../apps/api/src/scanner.js';
+test('ClamAV streaming validates clean verdicts and rejects malware and scanner errors',async()=>{
+ const previous={mode:process.env.EVIDENCE_SCAN_MODE,host:process.env.CLAMAV_HOST,port:process.env.CLAMAV_PORT};let verdict='stream: OK\0',received=Buffer.alloc(0);
+ const server=net.createServer(socket=>{let buffer=Buffer.alloc(0),cursor=10;socket.on('error',()=>{});socket.on('data',bytes=>{buffer=Buffer.concat([buffer,bytes]);if(buffer.length<10)return;assert.equal(buffer.subarray(0,10).toString(),'zINSTREAM\0');while(buffer.length>=cursor+4){const size=buffer.readUInt32BE(cursor);if(!size){socket.end(verdict);return;}if(buffer.length<cursor+4+size)return;received=Buffer.concat([received,buffer.subarray(cursor+4,cursor+4+size)]);cursor+=4+size;}});});server.listen(0,'127.0.0.1');await new Promise<void>(resolve=>server.once('listening',resolve));
+ process.env.EVIDENCE_SCAN_MODE='required';process.env.CLAMAV_HOST='127.0.0.1';process.env.CLAMAV_PORT=String((server.address() as net.AddressInfo).port);
+ try{const bytes=Buffer.alloc(90000,65);assert.equal(await scanEvidence(bytes),'clamav_clean');assert.deepEqual(received,bytes);verdict='stream: Fictional.Test FOUND\0';await assert.rejects(()=>scanEvidence(Buffer.from('test')),/Malware/);verdict='stream: ERROR\0';await assert.rejects(()=>scanEvidence(Buffer.from('test')),/could not verify/);}finally{await new Promise<void>(resolve=>server.close(()=>resolve()));for(const [key,value] of Object.entries({EVIDENCE_SCAN_MODE:previous.mode,CLAMAV_HOST:previous.host,CLAMAV_PORT:previous.port})){if(value===undefined)delete process.env[key];else process.env[key]=value;}}
+});
+test('production cannot silently disable scanning',()=>{const mode=process.env.EVIDENCE_SCAN_MODE,environment=process.env.NODE_ENV;process.env.EVIDENCE_SCAN_MODE='off';process.env.NODE_ENV='production';try{assert.throws(()=>scanMode(),/cannot be disabled/);}finally{if(mode===undefined)delete process.env.EVIDENCE_SCAN_MODE;else process.env.EVIDENCE_SCAN_MODE=mode;if(environment===undefined)delete process.env.NODE_ENV;else process.env.NODE_ENV=environment;}});

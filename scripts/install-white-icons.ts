@@ -1,0 +1,4 @@
+﻿import 'dotenv/config';import fs from 'node:fs';import {REST}from'discord.js';import{ids}from'../config/ids.js';
+const rest=new REST({version:'10'}).setToken(process.env.DISCORD_BOT_TOKEN!);const list=await rest.get(`/applications/${ids.clientId}/emojis`) as {items:{id:string;name:string}[]};const result:Record<string,string>={};
+for(const key of ['shield','check','close']){let emoji=list.items.find(e=>e.name==='lasrp_white_'+key);if(!emoji)emoji=await rest.post(`/applications/${ids.clientId}/emojis`,{body:{name:'lasrp_white_'+key,image:'data:image/png;base64,'+fs.readFileSync(`assets/icons/${key}.png`).toString('base64')}}) as {id:string;name:string};result[key]=emoji.id;}
+let source=fs.readFileSync('config/ids.ts','utf8');for(const [key,id]of Object.entries(result))source=source.replace(new RegExp(key+":'[^']*'"),key+":'"+id+"'");fs.writeFileSync('config/ids.ts',source);console.log('Custom white application icons configured: '+Object.keys(result).join(', '));

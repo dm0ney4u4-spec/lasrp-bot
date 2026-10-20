@@ -1,0 +1,81 @@
+{
+    "server":  [
+                   [
+                       "Realistic roleplay is required at all times during official sessions. Every player is responsible for creating fair, believable, and enjoyable scenarios.",
+                       "**1. Random Deathmatch (RDM)**\r\nAttacking or killing another player without a valid roleplay reason is prohibited.",
+                       "**2. Vehicle Deathmatch (VDM)**\r\nIntentionally using a vehicle to injure or kill another player without a valid roleplay scenario is prohibited.",
+                       "**3. Fail Roleplay (FRP)**\r\nUnrealistic actions that intentionally disrupt roleplay are prohibited. Players must reasonably react to injuries, dangerous situations, and other events.",
+                       "**4. New Life Rule (NLR)**\r\nAfter a character dies, that character must not immediately return to the same active incident or use information from their previous life to seek revenge. Default restriction: 5 minutes from the original scene."
+                   ],
+                   [
+                       "**5. Fear Roleplay**\r\nCharacters should demonstrate realistic concern for their safety when facing credible threats.",
+                       "**6. Metagaming**\r\nUsing out-of-character information, including private Discord communications or livestream information, for an in-character advantage is prohibited.",
+                       "**7. Powergaming**\r\nForcing unrealistic actions or outcomes on other players without allowing reasonable roleplay responses is prohibited.",
+                       "**8. Combat Logging**\r\nLeaving the server or resetting to intentionally avoid a legitimate roleplay situation, arrest, or moderation action is prohibited."
+                   ],
+                   [
+                       "**9. Realistic Driving**\r\nDrive reasonably for your character, vehicle, and situation. Unrealistic high-speed driving or repeatedly causing collisions without roleplay purpose is prohibited.",
+                       "**10. Emergency Services Roleplay**\r\nPolice, Fire, and EMS players must follow department procedures during official roleplay. Abuse of emergency equipment or department authority is prohibited.",
+                       "**11. Criminal Roleplay**\r\nCriminal behavior must have a legitimate roleplay purpose. Repeatedly initiating major criminal events solely to disrupt server operations is prohibited.",
+                       "**12. Scene Interference**\r\nDo not intentionally interfere with active traffic stops, arrests, investigations, or emergency scenes when you are not part of the situation."
+                   ],
+                   [
+                       "**13. Safe Zones**\r\nSpawn areas, staff areas, and designated safe zones are protected. Starting or continuing hostile roleplay inside a safe zone is prohibited.",
+                       "**14. Staff Scenes**\r\nDo not interfere with moderation situations. Do not impersonate staff or evade staff actions.",
+                       "**15. Exploiting and Glitch Abuse**\r\nExploiting game mechanics, unauthorized scripts, or malicious glitches is prohibited.",
+                       "**16. Realistic Character Behavior**\r\nUse appropriate roleplay names, believable actions, and appropriate communication during official sessions."
+                   ],
+                   [
+                       "**17. Priority Scenes**\r\nFollow the server\u0027s configured priority rules. Priority cooldowns and restrictions must be visible in the session information panel.",
+                       "**18. Common Sense**\r\nActions intentionally designed to ruin roleplay may be reviewed under the general disruption rule. Punishments must reference specific conduct and provide a clear reason.",
+                       "### Default enforcement\nMinor first offense: Verbal warning. Repeated minor offense: Formal warning. Continued disruption: Kick. Repeated or serious violations: Temporary ban. Severe abuse, threats, or exploitation: Immediate staff review for permanent ban.\nThis is a guideline, not an automatic punishment requirement. Authorized staff must review context and evidence."
+                   ]
+               ],
+    "community":  [
+                      [
+                          "Welcome to {community}! Our goal is to create a realistic, enjoyable, and professionally managed roleplay community. Every member is expected to follow these rules. By participating, you agree to uphold our community standards.",
+                          "**Rule 1 — Respect Everyone**\r\nTreat members and staff respectfully. Harassment, bullying, discrimination, threats, and targeted abuse are prohibited.",
+                          "**Rule 2 — No Spamming**\r\nDo not flood channels, repeatedly ping members, send excessive messages, or intentionally disrupt conversations.",
+                          "**Rule 3 — Appropriate Content**\r\nKeep all content appropriate for the community. NSFW content, graphic material, and inappropriate usernames or profile pictures are prohibited.",
+                          "**Rule 4 — No Advertising**\r\nUnauthorized server advertisements, unsolicited promotions, referral links, and promotional direct messages are prohibited."
+                      ],
+                      [
+                          "**Rule 5 — No Exploiting**\r\nDo not use exploits, malicious software, unauthorized automation, or vulnerabilities to gain an unfair advantage.",
+                          "**Rule 6 — Respect Channel Purposes**\r\nUse channels only for their intended purposes. Follow channel descriptions and pinned instructions.",
+                          "**Rule 7 — No Impersonation**\r\nDo not impersonate staff, management, other members, or official organizations.",
+                          "**Rule 8 — Privacy and Safety**\r\nDo not share private information, passwords, personal photographs, addresses, or other sensitive information without authorization."
+                      ],
+                      [
+                          "**Rule 9 — Follow Discord Guidelines**\r\nAll members must follow Discord\u0027s Terms of Service and Community Guidelines.",
+                          "**Rule 10 — Staff Instructions**\r\nFollow reasonable, authorized staff instructions. If you disagree with a decision, use the appeal or report system rather than disrupting the community.",
+                          "**Rule 11 — No Drama or Trolling**\r\nDo not deliberately provoke arguments, organize harassment, or repeatedly interfere with other members\u0027 enjoyment.",
+                          "**Rule 12 — Report Violations**\r\nUse the designated report system. Do not retaliate, publicly harass alleged rulebreakers, or make knowingly false reports.",
+                          "Failure to follow these rules may result in warnings, timeouts, kicks, or bans. Serious violations may result in immediate removal."
+                      ]
+                  ],
+    "staff":  [
+                  [
+                      "Staff are trusted to serve the community fairly and protect confidential information.",
+                      "1. Remain professional and respectful.",
+                      "2. Never abuse moderation permissions.",
+                      "3. Always provide valid punishment reasons.",
+                      "4. Do not moderate solely for personal disagreements.",
+                      "5. Never leak private staff discussions or confidential member records."
+                  ],
+                  [
+                      "6. Maintain accurate moderation logs.",
+                      "7. Do not modify your own disciplinary records.",
+                      "8. Do not promote or demote staff without authorization.",
+                      "9. Follow the staff chain of command.",
+                      "10. Handle reports fairly and investigate evidence."
+                  ],
+                  [
+                      "11. Never falsify shift hours, attendance, or moderation statistics.",
+                      "12. Do not misuse the ER:LC API or remote commands.",
+                      "13. Recuse yourself from cases involving serious personal conflicts.",
+                      "14. Maintain respectful communication with members.",
+                      "15. Report serious security incidents immediately.",
+                      "Follow the chain of command and request management review when needed."
+                  ]
+              ]
+}

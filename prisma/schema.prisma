@@ -1,0 +1,375 @@
+generator client {
+ provider = "prisma-client-js"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+}
+model GuildState {
+ id String @id
+ data Json
+ updatedAt DateTime @updatedAt
+}
+model User {
+ id String @id
+ displayName String
+ preferences Json @default("{}")
+ createdAt DateTime @default(now())
+ characters CivilianCharacter[]
+ vehicles VehicleRegistration[]
+ sessions WebSession[]
+ roblox LinkedRobloxAccount?
+}
+model WebSession {
+ tokenHash String @id
+ userId String
+ user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+ csrf String
+ expiresAt DateTime
+ @@index([expiresAt])
+}
+model OAuthChallenge {
+ stateHash String @id
+ userId String
+ sessionHash String
+ verifier String
+ expiresAt DateTime
+ @@index([expiresAt])
+}
+model LinkedRobloxAccount {
+ id String @id @default(cuid())
+ userId String @unique
+ user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+ robloxId String @unique
+ username String
+ verifiedAt DateTime
+}
+model CivilianCharacter {
+ id String @id @default(cuid())
+ ownerId String
+ owner User @relation(fields:[ownerId],references:[id])
+ name String
+ demographics Json @default("{}")
+ licenses Json @default("[]")
+ version Int @default(1)
+ demo Boolean @default(false)
+ createdAt DateTime @default(now())
+ @@index([ownerId])
+ @@index([name])
+}
+model VehicleRegistration {
+ id String @id @default(cuid())
+ ownerId String
+ owner User @relation(fields:[ownerId],references:[id])
+ characterId String
+ plate String @unique
+ make String
+ model String
+ color String
+ stolen Boolean @default(false)
+ version Int @default(1)
+ demo Boolean @default(false)
+ createdAt DateTime @default(now())
+ @@index([ownerId])
+ @@index([characterId])
+}
+model Incident {
+ id String @id @default(cuid())
+ source String @default("MANUAL_ROLEPLAY")
+ callerId String
+ location String
+ narrative String
+ type String
+ priority Int
+ agency String @default("police")
+ status String @default("pending")
+ dispatcherId String?
+ coordinates Json?
+ notes Json @default("[]")
+ timestamps Json @default("{}")
+ version Int @default(1)
+ demo Boolean @default(false)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ assignments CallAssignment[]
+ mergedIntoId String?
+ mergedInto Incident? @relation("IncidentMerges", fields:[mergedIntoId], references:[id])
+ mergedIncidents Incident[] @relation("IncidentMerges")
+ trafficStops TrafficStop[]
+ @@index([status,priority,createdAt])
+ @@index([callerId])
+}
+model Unit {
+ id String @id @default(cuid())
+ userId String @unique
+ callsign String
+ agency String
+ status String @default("available")
+ location String?
+ coordinates Json?
+ locationSource String @default("MANUAL_ROLEPLAY")
+ version Int @default(1)
+ updatedAt DateTime @updatedAt
+ assignments CallAssignment[]
+ resources AgencyResource[]
+}
+model CallAssignment {
+ id String @id @default(cuid())
+ incidentId String
+ incident Incident @relation(fields:[incidentId],references:[id],onDelete:Cascade)
+ unitId String
+ unit Unit @relation(fields:[unitId],references:[id])
+ assignedBy String
+ assignedAt DateTime @default(now())
+ @@unique([incidentId,unitId])
+}
+// Validated agency-specific records; append-only audit entries preserve all revisions.
+model CadRecord {
+ id String @id @default(cuid())
+ kind String
+ agency String
+ ownerId String
+ subjectId String?
+ incidentId String?
+ status String @default("draft")
+ sealed Boolean @default(false)
+ data Json
+ version Int @default(1)
+ demo Boolean @default(false)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ charges Charge[]
+ trafficStop TrafficStop?
+ evidence Evidence[]
+ operationalCase OperationalCase?
+ @@index([kind,agency,status])
+ @@index([subjectId])
+ @@index([incidentId])
+}
+model RadioMessage {
+ id String @id @default(cuid())
+ userId String
+ agency String
+ callsign String
+ text String
+ priority Boolean @default(false)
+ createdAt DateTime @default(now())
+ @@index([agency,createdAt])
+}
+model AuditEvent {
+ id String @id @default(cuid())
+ actorId String
+ action String
+ entityId String
+ before Json?
+ after Json?
+ createdAt DateTime @default(now())
+ @@index([entityId,createdAt])
+ @@index([actorId,createdAt])
+}
+model Application {
+ id String @id @default(cuid())
+ guildId String
+ applicantId String
+ number Int @unique @default(autoincrement())
+ status String @default("intro")
+ step Int @default(0)
+ answers Json @default("[]")
+ questions Json
+ reviewerId String?
+ decisionReason String?
+ privateNotes Json @default("[]")
+ history Json @default("[]")
+ reviewMessageId String?
+ reviewChannelId String?
+ dmFailed Boolean @default(false)
+ version Int @default(1)
+ activeKey String? @unique
+ updatedAt DateTime @updatedAt
+ createdAt DateTime @default(now())
+ @@index([applicantId,status])
+}
+model TicketTranscript {
+ id String @id
+ guildId String
+ openerId String
+ staffIds Json
+ text String
+ expiresAt DateTime
+ createdAt DateTime @default(now())
+ @@index([expiresAt])
+}
+model Session {
+ id String @id @default(cuid())
+ guildId String
+ hostId String
+ status String @default("starting")
+ activeKey String? @unique
+ startedAt DateTime @default(now())
+ endedAt DateTime?
+ reason String?
+ peakPlayers Int @default(0)
+ channelId String?
+ messageId String?
+ extensionMinutes Int @default(0)
+ version Int @default(1)
+ attendance SessionAttendance[]
+ @@index([guildId,startedAt])
+}
+model SessionAttendance {
+ id String @id @default(cuid())
+ sessionId String
+ session Session @relation(fields:[sessionId],references:[id],onDelete:Cascade)
+ player String
+ firstSeen DateTime @default(now())
+ lastSeen DateTime @default(now())
+ @@unique([sessionId,player])
+}
+model ScheduledSession {
+ id String @id @default(cuid())
+ guildId String
+ hostId String
+ startsAt DateTime
+ status String @default("scheduled")
+ reminderSent Boolean @default(false)
+ note String
+ createdAt DateTime @default(now())
+ @@index([guildId,status,startsAt])
+}
+model PenalCode {
+ id String @id @default(cuid())
+ code String @unique
+ title String
+ classification String
+ fine Int
+ description String
+ active Boolean @default(true)
+ version Int @default(1)
+ updatedAt DateTime @updatedAt
+ charges Charge[]
+}
+model Charge {
+ id String @id @default(cuid())
+ recordId String
+ record CadRecord @relation(fields:[recordId],references:[id])
+ penalCodeId String
+ penalCode PenalCode @relation(fields:[penalCodeId],references:[id])
+ codeSnapshot String
+ titleSnapshot String
+ fine Int
+ count Int @default(1)
+ @@unique([recordId,penalCodeId])
+}
+model TrafficStop {
+ id String @id @default(cuid())
+ officerId String
+ callsign String
+ agency String
+ plate String
+ location String
+ driverId String?
+ passengers Json @default("[]")
+ narrative String
+ status String @default("active")
+ disposition String @default("pending")
+ backupRequested Boolean @default(false)
+ towRequested Boolean @default(false)
+ incidentId String?
+ incident Incident? @relation(fields:[incidentId],references:[id])
+ reportId String? @unique
+ report CadRecord? @relation(fields:[reportId],references:[id])
+ version Int @default(1)
+ demo Boolean @default(false)
+ createdAt DateTime @default(now())
+ closedAt DateTime?
+ updatedAt DateTime @updatedAt
+ @@index([agency,status,createdAt])
+ @@index([plate])
+ @@index([driverId])
+}
+model Notification {
+ id String @id @default(cuid())
+ userId String
+ kind String
+ title String
+ body String
+ href String
+ readAt DateTime?
+ createdAt DateTime @default(now())
+ @@index([userId,readAt,createdAt])
+}
+model Evidence {
+ id String @id @default(cuid())
+ recordId String
+ record CadRecord @relation(fields:[recordId],references:[id])
+ uploaderId String
+ originalName String
+ mimeType String
+ byteCount Int
+ checksum String
+ storageKey String @unique
+ createdAt DateTime @default(now())
+ custody EvidenceCustody[]
+ @@index([recordId,createdAt])
+}
+model EvidenceCustody {
+ id String @id @default(cuid())
+ evidenceId String
+ evidence Evidence @relation(fields:[evidenceId],references:[id])
+ actorId String
+ action String
+ note String
+ createdAt DateTime @default(now())
+ @@index([evidenceId,createdAt])
+}
+model OperationalCase {
+ id String @id @default(cuid())
+ kind String
+ agency String
+ creatorId String
+ assigneeId String?
+ incidentId String?
+ reportId String? @unique
+ activeKey String? @unique
+ report CadRecord? @relation(fields:[reportId],references:[id])
+ patients OperationalPatient[]
+ status String
+ data Json
+ version Int @default(1)
+ demo Boolean @default(false)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@index([kind,status,createdAt])
+ @@index([creatorId])
+}
+model AgencyResource {
+ id String @id @default(cuid())
+ agency String
+ kind String
+ code String
+ name String
+ status String @default("available")
+ stationId String?
+ station AgencyResource? @relation("StationResources",fields:[stationId],references:[id])
+ apparatus AgencyResource[] @relation("StationResources")
+ assignedUnitId String? @unique
+ assignedUnit Unit? @relation(fields:[assignedUnitId],references:[id])
+ version Int @default(1)
+ demo Boolean @default(false)
+ updatedAt DateTime @updatedAt
+ @@unique([agency,code,demo])
+}
+model OperationalPatient {
+ id String @id @default(cuid())
+ caseId String
+ case OperationalCase @relation(fields:[caseId],references:[id])
+ alias String
+ triage String
+ characterId String?
+ status String @default("assessed")
+ hospital String @default("")
+ summary String
+ version Int @default(1)
+ updatedAt DateTime @updatedAt
+ @@index([caseId])
+}

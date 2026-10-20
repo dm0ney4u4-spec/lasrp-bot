@@ -1,0 +1,5 @@
+ER:LC official map images supplied for integrations by Police Roleplay Community.
+Source: https://apidocs.erlc.gg/official-map-images
+Images: https://api.erlc.gg/maps/
+Artwork remains the property of its respective owners.
+Retrieved: 2026-10-19T02:05:06.909Z

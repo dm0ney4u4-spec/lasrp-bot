@@ -1,0 +1,2 @@
+﻿import fs from 'node:fs';import{Readable}from'node:stream';import{pipeline}from'node:stream/promises';
+const url='https://get.enterprisedb.com/postgresql/postgresql-18.6-5-windows-x64-binaries.zip';const response=await fetch(url,{signal:AbortSignal.timeout(120000)});if(!response.ok||!response.body)throw Error('Official PostgreSQL archive unavailable: '+response.status);console.log('Downloading the portable PostgreSQL runtime.');await pipeline(Readable.fromWeb(response.body as any),fs.createWriteStream('data/postgresql-native.zip'));console.log('Download complete.');

@@ -1,0 +1,1 @@
+﻿import 'dotenv/config';import{PGlite}from'@electric-sql/pglite';try{const db=await PGlite.create(process.env.LOCAL_DATABASE_PATH,{debug:1});console.log('Database opened');await db.close();}catch(e){console.error('Database diagnostic:',e instanceof Error?e.message:'Failed');}

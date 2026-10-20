@@ -1,0 +1,58 @@
+{
+    "name": "lasrp-operations",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "engines": {
+        "node": ">=22.12.0"
+    },
+    "scripts": {
+        "dev": "tsx watch apps/api/src/main.ts",
+        "start": "tsx scripts/start.ts",
+        "bot": "tsx scripts/start.ts",
+        "register": "tsx scripts/register.ts",
+        "build": "tsc --noEmit && npm run web:build",
+        "web:build": "esbuild apps/web/src/app.ts --bundle --format=esm --target=es2022 --outfile=apps/web/public/cad.js",
+        "check": "tsc --noEmit",
+        "test": "tsx --test tests/*.test.ts",
+        "db:generate": "prisma generate",
+        "db:migrate": "prisma migrate deploy",
+        "db:seed": "tsx prisma/seed.ts",
+        "backup": "tsx scripts/backup.ts",
+        "demo": "tsx scripts/demo.ts",
+        "setup:env": "tsx scripts/setup-env.ts",
+        "inventory": "tsx scripts/inventory.ts",
+        "smoke": "tsx scripts/smoke.ts",
+        "map:fetch": "tsx scripts/fetch-maps.ts",
+        "doctor": "tsx scripts/doctor.ts",
+        "discover": "tsx scripts/discover-discord.ts",
+        "stop": "tsx scripts/stop.ts",
+        "discord:doctor": "tsx scripts/diagnose-discord.ts"
+    },
+    "dependencies": {
+        "@prisma/client": "6.12.0",
+        "cookie": "^1.0.2",
+        "discord.js": "14.27.0",
+        "dotenv": "^16.6.1",
+        "express": "^5.1.0",
+        "fflate": "^0.8.3",
+        "helmet": "^8.1.0",
+        "pdf-lib": "^1.17.1",
+        "ws": "^8.18.3",
+        "zod": "^3.25.76"
+    },
+    "devDependencies": {
+        "@electric-sql/pglite": "^0.5.10",
+        "@electric-sql/pglite-socket": "^0.2.13",
+        "@types/express": "^5.0.3",
+        "@types/jsdom": "^21.1.7",
+        "@types/node": "^22.18.0",
+        "@types/ws": "^8.18.1",
+        "esbuild": "^0.25.12",
+        "jsdom": "^26.1.0",
+        "node": "^22.20.0",
+        "prisma": "6.12.0",
+        "tsx": "^4.20.6",
+        "typescript": "^5.9.3"
+    }
+}

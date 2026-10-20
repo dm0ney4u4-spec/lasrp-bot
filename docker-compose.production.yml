@@ -1,0 +1,49 @@
+services:
+  clamav:
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    volumes: ["lasrp-clamav:/var/lib/clamav"]
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lasrp
+      POSTGRES_USER: lasrp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes: ["lasrp-postgres:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lasrp -d lasrp"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+  migrate:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://lasrp:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/lasrp
+    depends_on:
+      postgres: {condition: service_healthy}
+    command: ["npm", "run", "db:migrate"]
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://lasrp:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/lasrp
+      NODE_ENV: production
+      DATABASE_MODE: postgres
+      EVIDENCE_SCAN_MODE: required
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: "3310"
+      DEMO_MODE: "false"
+      HOST: 0.0.0.0
+      PORT: "3000"
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      clamav: {condition: service_started}
+    ports: ["127.0.0.1:3000:3000"]
+    volumes: ["lasrp-files:/app/data"]
+volumes:
+  lasrp-clamav:
+  lasrp-postgres:
+  lasrp-files:
