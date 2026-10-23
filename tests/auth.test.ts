@@ -1,0 +1,47 @@
+﻿import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createHash,createHmac} from 'node:crypto';
+import express from 'express';
+import http from 'node:http';
+import {configureAuth,authOrigins} from '../apps/api/src/auth.js';
+import {configureWebsiteWorkspace} from '../apps/api/src/website-workspace.js';
+import {websiteDepartments} from '../config/website.js';
+const id='123456789012345678',role='123456789012345679';
+test('shared Discord OAuth flow verifies state/PKCE, persists hashed sessions, refreshes roles and enforces CSRF/logout',async()=>{
+ const previous={...process.env};Object.assign(process.env,{WEB_BASE_URL:'http://localhost:3000',WEBSITE_BASE_URL:'http://localhost:5173',APP_SESSION_SECRET:'auth-test-only-secret-32-characters-long',DISCORD_OAUTH_CLIENT_SECRET:'test-only-client-secret',DEMO_MODE:'false',NODE_ENV:'test'});
+ const sessions=new Map<string,any>();let roleAssigned=true,memberExists=true,tokenCalls=0,activeAgency='police',expectedChallenge='',seenVerifier=false;
+ const roleObject={id:role,name:'Verified LAPD Officer',position:5};
+ const member={id,displayName:'Member Display',user:{username:'member_discord'},displayAvatarURL:()=>`https://cdn.discordapp.com/avatars/${id}/verified.png`,get roles(){return {cache:new Map(roleAssigned?[[role,roleObject]]:[])};}};
+ const client={isReady:()=>true,guilds:{fetch:async()=>({members:{fetch:async()=>{if(!memberExists)throw Error('Not a member');return member;}}})}} as any;
+ const database={webSession:{create:async({data}:any)=>{sessions.set(data.tokenHash,data);},findUnique:async({where}:any)=>sessions.get(where.tokenHash),delete:async({where}:any)=>{sessions.delete(where.tokenHash);}},user:{upsert:async()=>({id})},guildState:{findUnique:async()=>({data:{config:{rbacRoles:{[activeAgency]:role}}}})}} as any;
+ const request:typeof fetch=async(input,init)=>{if(String(input).endsWith('/oauth2/token')){tokenCalls++;const fields=new URLSearchParams(init?.body as string);seenVerifier=createHash('sha256').update(fields.get('code_verifier')!).digest('base64url')===expectedChallenge;assert.equal(fields.get('redirect_uri'),'http://localhost:3000/auth/callback');return new Response(JSON.stringify({access_token:'PRIVATE_OAUTH_ACCESS_TOKEN'}));}return new Response(JSON.stringify({id,username:'member_discord'}));};
+ const app=express();app.use(express.json());configureAuth(app,client,{database,request});configureWebsiteWorkspace(app,{application:{findMany:async()=>[]}} as any);
+ const server=app.listen(0,'127.0.0.1');await new Promise<void>(r=>server.once('listening',r));const base='http://127.0.0.1:'+(server.address() as any).port;
+ const send=(path:string,method:string,headers:Record<string,string>)=>new Promise<Response>((resolve,reject)=>{const request=http.request(base+path,{method,headers},response=>{const chunks:Buffer[]=[];response.on('data',c=>chunks.push(c));response.on('end',()=>{const resultHeaders=new Headers();for(const [key,value]of Object.entries(response.headers))for(const item of Array.isArray(value)?value:value?[value]:[])resultHeaders.append(key,item);resolve(new Response(Buffer.concat(chunks),{status:response.statusCode,headers:resultHeaders}));});});request.on('error',reject);request.end();});
+ const get=(path:string,cookie='',host='localhost:3000')=>send(path,'GET',{Host:host,...(cookie?{Cookie:cookie}:{})});
+ const post=(path:string,cookie:string,origin:string,csrf?:string)=>send(path,'POST',{Host:'localhost:3000',Cookie:cookie,Origin:origin,...(csrf?{'x-csrf-token':csrf}:{})});
+ try{
+  assert.equal((await get('/api/me')).status,401);
+  const canonical=await get('/auth/discord?website=1','','127.0.0.1:5173');assert.equal(canonical.headers.get('location'),'http://localhost:3000/auth/discord?website=1');
+  const start=await get('/auth/discord?website=1'),oauthCookie=start.headers.get('set-cookie')!.split(';')[0],authorize=new URL(start.headers.get('location')!);expectedChallenge=authorize.searchParams.get('code_challenge')!;assert.equal(authorize.searchParams.get('scope'),'identify');assert.ok(start.headers.get('set-cookie')!.includes('HttpOnly'));assert.ok(start.headers.get('set-cookie')!.includes('SameSite=Lax'));assert.ok(!start.headers.get('set-cookie')!.includes('Domain='));
+  const state=authorize.searchParams.get('state')!;
+  await get('/auth/callback?state=forged&code=BAD',oauthCookie);assert.equal(tokenCalls,0);assert.equal(sessions.size,0);
+  await get(`/auth/callback?state=${state}&code=BAD`,'lasrp_oauth=forged.cookie');assert.equal(tokenCalls,0);
+  const cancelled=await get(`/auth/callback?state=${state}&error=access_denied`,oauthCookie);assert.equal(cancelled.headers.get('location'),'http://localhost:5173/login?login_error=cancelled');
+  const done=await get(`/auth/callback?state=${state}&code=REAL_TEST_CODE`,oauthCookie);assert.equal(done.headers.get('location'),'http://localhost:5173/member');assert.equal(tokenCalls,1);assert.ok(seenVerifier);assert.equal(sessions.size,1);
+  const sessionCookie=done.headers.getSetCookie().find(s=>s.startsWith('lasrp_session='))!.split(';')[0],raw=sessionCookie.split('=')[1];assert.ok(!sessions.has(raw));assert.ok(sessions.has(createHash('sha256').update(raw).digest('hex')));
+  const meResponse=await get('/api/me',sessionCookie),me=await meResponse.json() as any;assert.equal(me.profile.username,'member_discord');assert.equal(me.profile.roles[0].name,roleObject.name);assert.ok(me.user.groups.includes('police'));assert.ok(!JSON.stringify(me).includes('PRIVATE_OAUTH_ACCESS_TOKEN'));assert.equal(meResponse.headers.get('cache-control'),'no-store');
+  const memberDto=await(await get('/api/website/member',sessionCookie)).json() as any;assert.equal(memberDto.departments.find((d:any)=>d.slug==='lapd').member,true);assert.equal(memberDto.departments.find((d:any)=>d.slug==='lasd').access,false);assert.equal(memberDto.departments.find((d:any)=>d.slug==='lapd').rank,null);
+  websiteDepartments.lapd.rankRoleIds.push(role);websiteDepartments.lapd.commandRoleIds.push(role);
+  const ranked=await(await get('/api/website/member',sessionCookie)).json() as any;assert.equal(ranked.departments[0].rank.name,roleObject.name);assert.equal(ranked.departments[0].canManage,true);
+  assert.equal((await get('/api/website/departments/lapd',sessionCookie)).status,200);assert.equal((await get('/api/website/departments/lasd',sessionCookie)).status,403);assert.equal((await get('/api/website/departments/chp',sessionCookie)).status,409);
+  for(const [slug,agency]of Object.entries({lapd:'police',lasd:'sheriff',lafd:'fire',dot:'dot'})){activeAgency=agency;assert.equal((await get('/api/website/departments/'+slug,sessionCookie)).status,200);const dto=await(await get('/api/website/member',sessionCookie)).json() as any;assert.equal(dto.departments.find((d:any)=>d.slug===slug).member,true);}activeAgency='police';
+  roleAssigned=false;assert.equal((await get('/api/website/departments/lapd',sessionCookie)).status,403);assert.ok(!(await(await get('/api/me',sessionCookie)).json() as any).user.groups.includes('police'));
+  assert.equal((await post('/api/logout',sessionCookie,'https://evil.example',me.csrf)).status,403);assert.equal((await post('/api/logout',sessionCookie,'http://localhost:5173')).status,403);assert.equal((await post('/api/logout',sessionCookie,'http://127.0.0.1:5173',me.csrf)).status,403);
+  const logout=await post('/api/logout',sessionCookie,'http://localhost:5173',me.csrf);assert.equal(logout.status,200);assert.ok(logout.headers.get('set-cookie')!.includes('Max-Age=0'));assert.equal((await get('/api/me',sessionCookie)).status,401);
+  sessions.set(createHash('sha256').update(raw).digest('hex'),{tokenHash:createHash('sha256').update(raw).digest('hex'),userId:id,csrf:'test',expiresAt:new Date(0)});assert.equal((await get('/api/me',sessionCookie)).status,401);
+  sessions.get(createHash('sha256').update(raw).digest('hex')).expiresAt=new Date(Date.now()+60000);memberExists=false;assert.equal((await get('/api/me',sessionCookie)).status,401);
+  const value=Buffer.from(JSON.stringify({state:'expired',verifier:'test',expires:0,website:true})).toString('base64url');await get('/auth/callback?state=expired&code=BAD','lasrp_oauth='+value+'.'+createHmac('sha256',process.env.APP_SESSION_SECRET!).update(value).digest('base64url'));assert.equal(tokenCalls,1);
+ }finally{websiteDepartments.lapd.rankRoleIds.length=0;websiteDepartments.lapd.commandRoleIds.length=0;server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));for(const k of Object.keys(process.env))if(!(k in previous))delete process.env[k];Object.assign(process.env,previous);}
+});
+test('production auth rejects mixed origins, non-HTTPS and credential-bearing configuration',()=>{const prev={...process.env};try{process.env.NODE_ENV='production';for(const [backend,website]of [['http://localhost:3000','http://localhost:5173'],['https://api.example','https://site.example'],['https://lasrp.example','https://lasrp.example:444'],['https://user:password@lasrp.example','https://lasrp.example']]){process.env.WEB_BASE_URL=backend;process.env.WEBSITE_BASE_URL=website;assert.throws(()=>authOrigins());}process.env.WEB_BASE_URL='https://lasrp.example';process.env.WEBSITE_BASE_URL='https://lasrp.example';assert.deepEqual(authOrigins(),{backend:'https://lasrp.example',website:'https://lasrp.example'});}finally{for(const k of Object.keys(process.env))if(!(k in prev))delete process.env[k];Object.assign(process.env,prev);}});

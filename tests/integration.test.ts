@@ -12,8 +12,8 @@ import type { CommunityService } from '../apps/bot/src/service.js';
 
 test('PostgreSQL integration: real migrations, CAD routes, privacy, concurrency and applications',async t=>{
  const engine=await PGlite.create();for(const name of fs.readdirSync('prisma/migrations').filter(n=>/^\d/.test(n)).sort())await engine.exec(fs.readFileSync(`prisma/migrations/${name}/migration.sql`,'utf8'));
- const socket=new PGLiteSocketServer({db:engine,host:'127.0.0.1',port:54339,maxConnections:1});await socket.start();
- process.env.DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:54339/postgres?connection_limit=1';process.env.DEMO_MODE='true';process.env.APP_SESSION_SECRET='test-session-secret-abcdefghijklmnopqrstuvwxyz';
+ const socket=new PGLiteSocketServer({db:engine,host:'127.0.0.1',port:0,maxConnections:1});await socket.start();
+ process.env.DATABASE_URL=`postgresql://postgres:postgres@${socket.getServerConn()}/postgres?connection_limit=1`;process.env.DEMO_MODE='true';process.env.APP_SESSION_SECRET='test-session-secret-abcdefghijklmnopqrstuvwxyz';
  const {db}=await import('../packages/shared/src/database.js');const {configureCad}=await import('../apps/api/src/cad.js');const {configureAuth}=await import('../apps/api/src/auth.js');const {Applications}=await import('../apps/bot/src/applications.js');
  const g={config:{applicationSettings:{open:true,requirements:'Test requirements',cooldownHours:0,questions:['Question one','Question two']}},sessions:[],records:{},cases:{},tickets:{},shifts:{},history:[]};
  const service={store:{guild:()=>g},client:{isReady:()=>false}} as unknown as CommunityService;
@@ -441,8 +441,8 @@ test('PostgreSQL integration: real migrations, CAD routes, privacy, concurrency 
    try{protect(securityService);const guild={id:ids.guildId,ownerId:'OWNER',members:{fetch:async()=>{attemptedPunishment=true;throw Error('Must not run');}}};const handler=handlers.get(Events.GuildAuditLogEntryCreate)!;for(let n=0;n<3;n++)await handler({action:AuditLogEvent.ChannelDelete,executorId:'UNTRUSTED',targetId:'TARGET'},guild);assert.equal(Object.keys(securityState.records).length,1);assert.equal(attemptedPunishment,false);assert.equal(Object.values(securityState.records)[0].mode,'review');}finally{ids.guildId=original;}
   });
   await t.test('session cookies and CSRF reject anonymous and cross-origin mutations',async()=>{
-   const authApp=express();authApp.use(express.json());const client=new Client({intents:[]});configureAuth(authApp,client);authApp.post('/api/probe',(req,res)=>res.json({ok:true}));
-   const authServer=authApp.listen(0,'127.0.0.1');await new Promise<void>(r=>authServer.once('listening',r));const authUrl=`http://127.0.0.1:${(authServer.address() as {port:number}).port}`;process.env.WEB_BASE_URL=authUrl;
+   const authApp=express();authApp.use(express.json());const client=new Client({intents:[]});
+   const authServer=authApp.listen(0,'127.0.0.1');await new Promise<void>(r=>authServer.once('listening',r));const authUrl=`http://127.0.0.1:${(authServer.address() as {port:number}).port}`;process.env.WEB_BASE_URL=authUrl;process.env.WEBSITE_BASE_URL=authUrl;configureAuth(authApp,client);authApp.post('/api/probe',(req,res)=>res.json({ok:true}));
    try{assert.equal((await fetch(authUrl+'/api/me')).status,401);assert.equal((await fetch(authUrl+'/auth/demo',{method:'POST',headers:{Origin:'https://evil.invalid'}})).status,403);
     assert.equal((await(await fetch(authUrl+'/auth/options')).json() as {demo:boolean}).demo,true);process.env.DEMO_MODE='false';assert.equal((await(await fetch(authUrl+'/auth/options')).json() as {demo:boolean}).demo,false);assert.equal((await fetch(authUrl+'/auth/demo',{method:'POST',headers:{Origin:authUrl}})).status,404);process.env.DEMO_MODE='true';
     const login=await fetch(authUrl+'/auth/demo',{method:'POST',headers:{Origin:authUrl}});assert.equal(login.status,200);const cookie=login.headers.get('set-cookie')!.split(';')[0];const identity=await(await fetch(authUrl+'/api/me',{headers:{Cookie:cookie}})).json() as {csrf:string};

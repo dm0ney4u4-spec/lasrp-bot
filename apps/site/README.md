@@ -1,6 +1,6 @@
 # LASRP public website
 
-A React / TypeScript / Vite public website alongside the existing Discord bot and CAD. The latest update adds genuine live ER:LC aggregate status, central invitations, CHP preparation, and authenticated read-only applicant/department workspaces. See `docs/WEBSITE_UPDATE.md` for current scope and configuration. No production deployment or database migration was performed for this update.
+A React / TypeScript / Vite member website alongside the existing Discord bot and CAD. Discord login, member profiles, department access, existing preferences, and logout reuse the shared backend. See `docs/MEMBER_PLATFORM.md` for current authentication setup and limitations, and `docs/WEBSITE_UPDATE.md` for live ER tracking. No deployment or database migration was performed.
 
 ## Run on Windows
 
@@ -13,7 +13,7 @@ npm ci --prefix apps/site
 npm run site:dev
 ```
 
-Open **http://127.0.0.1:5173** in Edge, Chrome, or VS Code's **Simple Browser: Show** command. Use Ctrl+Shift+P to find that command, then enter the URL. Vite updates the preview when source files change. The website does not require the bot or database to preview.
+Open **http://localhost:5173** in Edge, Chrome, or VS Code's **Simple Browser: Show** command. Use Ctrl+Shift+P to find that command, then enter the URL. Vite updates the preview when source files change. Public pages can preview without the backend; live status and member features require the existing bot/API and database. Start them with `npm start` in a separate terminal. Register `http://localhost:3000/auth/callback` in the existing Discord application and set root `WEBSITE_BASE_URL=http://localhost:5173`.
 
 Production build and local production preview:
 
@@ -31,7 +31,7 @@ npm exec --prefix apps/site -- playwright install chromium
 npm run site:test
 ```
 
-Tests start the local production preview and cover desktop, tablet, mobile, direct page routes, keyboard menus, history, image loading/fallback, gallery controls, rank disclosures, and honest recruitment/account states. Build first. Screenshots and failure traces are in ignored `test-results/`. This does not test live Discord authentication or staff decisions.
+Tests start the local production preview and cover desktop, tablet, mobile, direct page routes, keyboard menus, history, image loading/fallback, gallery controls, rank disclosures, and honest recruitment/account states. Build first. Screenshots and failure traces are in ignored `test-results/`. Browser authentication fixtures and backend HTTP/session tests cover the member flow; actual Discord consent requires the callback registration and an actual member. Staff decisions remain in Discord.
 
 ## Public configuration
 
@@ -65,8 +65,12 @@ No top-level `404.html` is generated: Cloudflare Pages serves SPA routes using t
 
 Working: public page routing, responsive navigation, exact Discord invites, department galleries/placeholders, approved-public rules, configured CAD link, missing-image fallback, and static production output. Homepage and `/server-status` fetch the sanitized live backend with real unavailable/stale states. `/applications/dashboard` reads existing application summaries and the permitted reviewer queue after server authentication; department portals verify existing agency access and display preparation modules.
 
-Still requires configuration or implementation: public backend hosting/origin, approved Join Game code/link, a deployed same-origin authenticated gateway and verified Discord OAuth callback for production private workspaces, CHP permission bindings, department application forms/drafts, scoring/review actions, management mutations, leadership rosters, and certifications. No fake records or counters are used. Existing immutable staff DM applications and decision notifications continue in Discord.
+Still requires configuration or implementation: public hosting/gateway, registered Discord callbacks, verified department membership/rank/command role IDs, CHP permission bindings, department application forms/drafts, scoring/review actions, management mutations, leadership rosters, and certifications. No fake records or counters are used. Existing immutable staff DM applications and decision notifications continue in Discord.
 
 ## Phase 2
 
 See `docs/WEBSITE_PHASE_1.md` at the repository root for the architecture, file manifest, verification, and next implementation work. Existing staff applications remain immutable Discord DM flows. Website drafts must not silently change that workflow.
+
+## Member platform
+
+`/login`, `/member`, `/profile`, and `/profile/settings` now use the existing backend session. Community roles and department capabilities are server verified; own application statuses, notifications, and profile settings use existing APIs. See `docs/MEMBER_PLATFORM.md` for canonical localhost setup, production HTTPS requirements, department configuration, and the external Discord callback registration that remains required.

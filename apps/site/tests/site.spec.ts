@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-const paths=['/','/server-status','/departments','/departments/lapd','/departments/lasd','/departments/lafd','/departments/dot','/departments/chp','/departments/lapd/portal','/applications','/applications/dashboard','/applications/status','/cad','/staff','/sessions','/community','/community/rules','/community/news','/community/guides','/community/contact','/profile','/missing-page'];
+const paths=['/','/server-status','/departments','/departments/lapd','/departments/lasd','/departments/lafd','/departments/dot','/departments/chp','/departments/lapd/portal','/applications','/applications/dashboard','/applications/status','/cad','/staff','/sessions','/community','/community/rules','/community/news','/community/guides','/community/contact','/profile','/login','/member','/profile/settings','/missing-page'];
 test.beforeEach(async({page})=>{await page.route('**/api/public/erlc-status',route=>route.fulfill({status:503,json:{error:'Isolated browser test'}}));await page.route('**/api/website/**',route=>route.fulfill({status:401,json:{error:'Isolated browser test'}}));});
 test('all routes render directly without errors or horizontal overflow',async({page},testInfo)=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
@@ -24,7 +24,7 @@ test('all configured images load and no fabricated login or submission is offere
   await page.goto('/');const paths=await page.locator('img').evaluateAll(imgs=>imgs.map(i=>i.getAttribute('src')!));
   for(const src of new Set(paths)){const response=await page.request.get(src);expect(response.ok(),src).toBe(true);}
   await page.goto('/applications');await expect(page.locator('form')).toHaveCount(0);await expect(page.getByText(/does not accept or save/)).toBeVisible();
-  await page.goto('/profile');await expect(page.getByRole('button',{name:/sign in|log in/i})).toHaveCount(0);await expect(page.getByRole('heading',{name:'Website account access coming soon'})).toBeVisible();
+  await page.goto('/profile');await expect(page.getByRole('button',{name:/sign in|log in/i})).toHaveCount(0);await expect(page.getByRole('heading',{name:'Welcome to LASRP'})).toBeVisible();
 });
 test('keyboard navigation exposes menus and preserves reduced motion',async({page},testInfo)=>{
   await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');await page.keyboard.press('Tab');await expect(page.getByRole('link',{name:'Skip to content'})).toBeFocused();
