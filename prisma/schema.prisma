@@ -15,6 +15,8 @@ model User {
  displayName String
  preferences Json @default("{}")
  createdAt DateTime @default(now())
+ cadAdmissions CadAdmission[]
+ cadAccessApplications CadAccessApplication[]
  characters CivilianCharacter[]
  vehicles VehicleRegistration[]
  sessions WebSession[]
@@ -372,4 +374,71 @@ model OperationalPatient {
  version Int @default(1)
  updatedAt DateTime @updatedAt
  @@index([caseId])
+}
+
+model CadAdmission {
+ guildId String
+ userId String
+ user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+ status String @default("not_applied")
+ applicationId String? @unique
+ application CadAccessApplication? @relation(fields:[applicationId],references:[id],onDelete:Restrict)
+ version Int @default(1)
+ updatedAt DateTime @updatedAt
+ @@id([guildId,userId])
+}
+model CadAccessApplication {
+ id String @id @default(cuid())
+ guildId String
+ userId String
+ user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+ discordName String
+ robloxUsername String
+ requestedRole String
+ questions Json
+ answers Json
+ rulesVersion String
+ status String @default("pending")
+ version Int @default(1)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ admission CadAdmission?
+ history CadAccessAudit[]
+ deliveries CadAccessDelivery[]
+ @@index([guildId,status,createdAt])
+ @@index([guildId,userId,createdAt])
+}
+model CadAccessAudit {
+ id String @id @default(cuid())
+ applicationId String
+ application CadAccessApplication @relation(fields:[applicationId],references:[id],onDelete:Restrict)
+ actorId String
+ action String
+ fromStatus String
+ toStatus String
+ reason String
+ detail Json @default("{}")
+ createdAt DateTime @default(now())
+ @@index([applicationId,createdAt])
+}
+model CadAccessSettings {
+ guildId String @id
+ value Json
+ version Int @default(1)
+ updatedAt DateTime @updatedAt
+}
+model CadAccessDelivery {
+ id String @id @default(cuid())
+ applicationId String
+ application CadAccessApplication @relation(fields:[applicationId],references:[id],onDelete:Restrict)
+ kind String
+ status String @default("pending")
+ payload Json
+ attempts Int @default(0)
+ nextAttemptAt DateTime @default(now())
+ lockedAt DateTime?
+ deliveredAt DateTime?
+ errorCode String?
+ createdAt DateTime @default(now())
+ @@index([status,nextAttemptAt])
 }

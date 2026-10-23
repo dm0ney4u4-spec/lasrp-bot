@@ -5,6 +5,7 @@ import type {Client} from 'discord.js';
 import {db} from '../../../packages/shared/src/database.js';
 import {groupsFor,type Principal} from '../../../packages/shared/src/permissions.js';
 import {ids} from '../../../config/ids.js';
+import {memberCapabilities} from '../../../packages/shared/src/website-permissions.js';
 export interface DiscordProfile {username:string;avatarUrl:string|null;roles:{id:string;name:string}[]}
 declare global {namespace Express {interface Request {principal:Principal;csrf:string;sessionHash:string;discordProfile?:DiscordProfile}}}
 type AuthDatabase=Pick<typeof db,'webSession'|'user'|'guildState'>;
@@ -70,6 +71,6 @@ export function configureAuth(app:Express,client:Client,dependencies:{database?:
  app.post('/auth/demo',async(req,res,next)=>{try{if(!demo()||!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.ip??''))return res.sendStatus(404);if(req.headers.origin!==origins.backend)return res.sendStatus(403);await database.user.upsert({where:{id:'DEMO_OWNER'},create:{id:'DEMO_OWNER',displayName:'DEMO Owner'},update:{}});await newSession(res,'DEMO_OWNER',database);res.json({ok:true});}catch(error){next(error);}});
  const auth=async(req:Request,res:Response,next:NextFunction)=>{try{res.set('Cache-Control','no-store');const session=await sessionUser(req.headers.cookie,client,database);if(!session)return res.status(401).json({error:'Sign in with Discord to continue.'});Object.assign(req,session);if(!['GET','HEAD'].includes(req.method)&&(![origins.backend,origins.website].includes(String(req.headers.origin))||req.headers['x-csrf-token']!==req.csrf))return res.status(403).json({error:'Invalid request origin or CSRF token'});next();}catch(error){next(error);}};
  app.use('/api',auth);
- app.get('/api/me',(req,res)=>res.json({user:req.principal,profile:req.discordProfile??null,csrf:req.csrf,demo:demo(),features:ids.featureFlags}));
+ app.get('/api/me',(req,res)=>res.json({user:req.principal,profile:req.discordProfile??null,capabilities:memberCapabilities(req.principal),csrf:req.csrf,demo:demo(),features:ids.featureFlags}));
  app.post('/api/logout',async(req,res)=>{await database.webSession.delete({where:{tokenHash:req.sessionHash}});cookie(res,'lasrp_session','',0);res.json({ok:true});});
 }

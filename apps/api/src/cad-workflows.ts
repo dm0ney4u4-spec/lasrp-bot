@@ -1,3 +1,4 @@
+import {cadAdmission} from './cad-admission.js';
 import type { Express } from 'express';
 import { Prisma,type Incident } from '@prisma/client';
 import { z } from 'zod';
@@ -75,9 +76,6 @@ export function configureCadWorkflows(app:Express){
    return tx.incident.findUniqueOrThrow({where:{id:incident.id},include:{assignments:{include:{unit:true}}}});
   });changed();res.json(result);
  });
- app.get('/api/notifications',async(req,res)=>res.json(await db.notification.findMany({where:{userId:req.principal.id,...(req.query.unread==='true'?{readAt:null}:{})},orderBy:{createdAt:'desc'},...page(req.query.page)})));
- app.post('/api/notifications/read-all',async(req,res)=>{await db.notification.updateMany({where:{userId:req.principal.id,readAt:null},data:{readAt:new Date()}});changed();res.json({ok:true});});
- app.post('/api/notifications/:id/read',async(req,res)=>{const result=await db.notification.updateMany({where:{id:String(req.params.id),userId:req.principal.id},data:{readAt:new Date()}});if(!result.count)throw Object.assign(Error('Notification not found'),{status:404});changed();res.json({ok:true});});
  app.get('/api/penal-codes',async(req,res)=>{demand(req.principal,'police','sheriff','dispatcher','supervisor','doj');res.json(await db.penalCode.findMany({where:allowed(req.principal,'management')&&req.query.all==='true'?{}:{active:true},orderBy:{code:'asc'},take:500}));});
  app.post('/api/penal-codes',async(req,res)=>{demand(req.principal,'management');const body=penalCodeSchema.parse(req.body);const result=await db.$transaction(async tx=>{const row=await tx.penalCode.create({data:body});await audit(req.principal.id,'penal-code.create',row.id,null,row,tx);return row;});changed();res.status(201).json(result);});
  app.patch('/api/penal-codes/:id',async(req,res)=>{demand(req.principal,'management');const {version,...data}=penalCodeSchema.extend({version:z.number().int().positive()}).parse(req.body);const result=await db.$transaction(async tx=>{const before=await tx.penalCode.findUniqueOrThrow({where:{id:String(req.params.id)}});const update=await tx.penalCode.updateMany({where:{id:before.id,version},data:{...data,version:{increment:1}}});if(!update.count)throw conflict();const next=await tx.penalCode.findUniqueOrThrow({where:{id:before.id}});await audit(req.principal.id,'penal-code.update',before.id,before,next,tx);return next;});changed();res.json(result);});
@@ -119,4 +117,11 @@ export function configureCadWorkflows(app:Express){
    await notification(tx,current.officerId,'traffic_stop_closed','Traffic stop recorded',`${current.plate}: ${body.disposition}. Report ${report.id}.`,'#Police%20MDT');return next;
   });changed();res.json(result);
  });
+}
+
+export function configureMemberNotifications(app:Express){
+ const scope=async(req:import('express').Request)=>{let admitted=false;try{admitted=(await cadAdmission(req.principal)).admitted;}catch{}return admitted?{}:{kind:{in:['cad_application','cad_decision']}};};
+ app.get('/api/notifications',async(req,res)=>res.json(await db.notification.findMany({where:{userId:req.principal.id,...await scope(req),...(req.query.unread==='true'?{readAt:null}:{})},orderBy:{createdAt:'desc'},...page(req.query.page)})));
+ app.post('/api/notifications/read-all',async(req,res)=>{await db.notification.updateMany({where:{userId:req.principal.id,...await scope(req),readAt:null},data:{readAt:new Date()}});changed();res.json({ok:true});});
+ app.post('/api/notifications/:id/read',async(req,res)=>{const result=await db.notification.updateMany({where:{id:String(req.params.id),userId:req.principal.id,...await scope(req)},data:{readAt:new Date()}});if(!result.count)throw Object.assign(Error('Notification not found'),{status:404});changed();res.json({ok:true});});
 }

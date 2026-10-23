@@ -74,3 +74,7 @@ See `docs/WEBSITE_PHASE_1.md` at the repository root for the architecture, file 
 ## Member platform
 
 `/login`, `/member`, `/profile`, and `/profile/settings` now use the existing backend session. Community roles and department capabilities are server verified; own application statuses, notifications, and profile settings use existing APIs. See `docs/MEMBER_PLATFORM.md` for canonical localhost setup, production HTTPS requirements, department configuration, and the external Discord callback registration that remains required.
+
+## Explicit CAD admission
+
+Discord sign-in alone no longer grants CAD access. `/cad` provides the access application/status workflow, `/cad/review` is restricted to explicit CAD reviewers/revokers, and `/management` is restricted to the owner or configured website administrators. Operational APIs and WebSockets enforce PostgreSQL approval independently of frontend links. See `docs/CAD_ADMISSION.md` for migration, permissions, notifications, and configuration.

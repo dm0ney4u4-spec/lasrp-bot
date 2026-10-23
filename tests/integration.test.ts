@@ -14,17 +14,18 @@ test('PostgreSQL integration: real migrations, CAD routes, privacy, concurrency 
  const engine=await PGlite.create();for(const name of fs.readdirSync('prisma/migrations').filter(n=>/^\d/.test(n)).sort())await engine.exec(fs.readFileSync(`prisma/migrations/${name}/migration.sql`,'utf8'));
  const socket=new PGLiteSocketServer({db:engine,host:'127.0.0.1',port:0,maxConnections:1});await socket.start();
  process.env.DATABASE_URL=`postgresql://postgres:postgres@${socket.getServerConn()}/postgres?connection_limit=1`;process.env.DEMO_MODE='true';process.env.APP_SESSION_SECRET='test-session-secret-abcdefghijklmnopqrstuvwxyz';
- const {db}=await import('../packages/shared/src/database.js');const {configureCad}=await import('../apps/api/src/cad.js');const {configureAuth}=await import('../apps/api/src/auth.js');const {Applications}=await import('../apps/bot/src/applications.js');
+ const {db}=await import('../packages/shared/src/database.js');const {configureCad}=await import('../apps/api/src/cad.js');const {configureAuth}=await import('../apps/api/src/auth.js');const {configureCadAccess}=await import('../apps/api/src/cad-access.js');const {Applications}=await import('../apps/bot/src/applications.js');
  const g={config:{applicationSettings:{open:true,requirements:'Test requirements',cooldownHours:0,questions:['Question one','Question two']}},sessions:[],records:{},cases:{},tickets:{},shifts:{},history:[]};
  const service={store:{guild:()=>g},client:{isReady:()=>false}} as unknown as CommunityService;
  const app=express();app.use(express.json());
  app.use((req,res,next)=>{const role=String(req.headers['x-test-role']??'owner');const groups:Record<string,any[]>={owner:['owner'],civilian:['civilian'],police:['police'],police2:['police'],dispatcher:['dispatcher'],ems:['ems'],fire:['fire'],dot:['dot'],doj:['doj'],defense:['doj','defense'],judge:['doj','judge'],clerk:['doj','clerk']};req.principal={id:'TEST_'+role.toUpperCase(),name:'TEST',roles:[],groups:groups[role]??['civilian']};next();});
- app.get('/api/me',(req,res)=>res.json({user:req.principal,csrf:'TEST_CSRF',demo:true,features:{courts:false}}));configureCad(app,service);
+ app.get('/api/me',(req,res)=>res.json({user:req.principal,csrf:'TEST_CSRF',demo:true,features:{courts:false}}));configureCadAccess(app);configureCad(app,service);
  app.use((e:Error&{status?:number},req:express.Request,res:express.Response,next:express.NextFunction)=>res.status(e.status??400).json({error:e.message}));
  const server=app.listen(0,'127.0.0.1');await new Promise<void>(r=>server.once('listening',r));const address=server.address() as {port:number},url=`http://127.0.0.1:${address.port}`;
  const request=async(path:string,method='GET',body?:unknown,role='owner')=>{const response=await fetch(url+'/api'+path,{method,headers:{'Content-Type':'application/json','x-test-role':role},body:body===undefined?undefined:JSON.stringify(body)});return {status:response.status,data:await response.json()};};
  try{
   await db.user.createMany({data:['OWNER','CIVILIAN','POLICE','POLICE2','DISPATCHER','EMS','FIRE','DOT','DOJ','DEFENSE','JUDGE','CLERK'].map(name=>({id:'TEST_'+name,displayName:'Test '+name}))});
+  for(const user of await db.user.findMany()){const application=await db.cadAccessApplication.create({data:{guildId:ids.guildId,userId:user.id,discordName:user.displayName,robloxUsername:'TestUser',requestedRole:'civilian',questions:[],answers:{},rulesVersion:'test',status:'approved'}});await db.cadAdmission.create({data:{guildId:ids.guildId,userId:user.id,status:'approved',applicationId:application.id}});}
   await t.test('radio requires agency duty, restricts priority broadcasts and deduplicates acknowledgments',async()=>{
    const unit=await db.unit.create({data:{userId:'TEST_POLICE2',callsign:'RADIO-TEST',agency:'police',status:'available'}});
    try{assert.equal((await request('/radio','POST',{agency:'police',text:'Fictional priority test',priority:true},'police2')).status,403);const message=await request('/radio','POST',{agency:'police',text:'Fictional unit radio check',priority:false},'police2');assert.equal(message.status,201);

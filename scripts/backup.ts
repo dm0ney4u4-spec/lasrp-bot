@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 if(!process.env.DATABASE_URL)throw Error('DATABASE_URL is required');
 fs.mkdirSync('backups',{recursive:true});const file=`backups/LASRP-${new Date().toISOString().replace(/[:.]/g,'-')}.dump`;
-const result=spawnSync('pg_dump',['--format=custom',`--file=${file}`],{env:{...process.env,PGDATABASE:process.env.DATABASE_URL},stdio:'inherit'});if(result.status!==0)throw Error('pg_dump failed. Install PostgreSQL client tools and check database connectivity.');
+const database=new URL(process.env.DATABASE_URL);
+const result=spawnSync('pg_dump',['--format=custom',`--file=${file}`],{env:{...process.env,PGHOST:database.hostname,PGPORT:database.port||'5432',PGUSER:decodeURIComponent(database.username),PGPASSWORD:decodeURIComponent(database.password),PGDATABASE:database.pathname.slice(1)},stdio:'inherit'});if(result.status!==0)throw Error('pg_dump failed. Install PostgreSQL client tools and check database connectivity.');
 const evidenceDirectory=file+'.evidence';fs.mkdirSync(evidenceDirectory,{recursive:true});let fileCount=0;
 if(fs.existsSync('data/evidence'))for(const entry of fs.readdirSync('data/evidence',{withFileTypes:true})){if(entry.isFile()&&/^[a-f\d-]{36}\.enc$/i.test(entry.name)){fs.copyFileSync(path.join('data/evidence',entry.name),path.join(evidenceDirectory,entry.name));fileCount++;}}
 fs.writeFileSync(file+'.manifest.json',JSON.stringify({database:path.basename(file),encryptedEvidence:path.basename(evidenceDirectory),fileCount,requiresOriginalFileStorageSecret:true,createdAt:new Date().toISOString()},null,2));

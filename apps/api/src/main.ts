@@ -5,7 +5,7 @@ import http from 'node:http';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import helmet from 'helmet';
-import { WebSocketServer,WebSocket } from 'ws';
+import {configureCadSockets} from './cad-sockets.js';
 import { ids } from '../../../config/ids.js';
 import { assetDirectory } from '../../../config/assets.js';
 import { db,events,audit,changed } from '../../../packages/shared/src/database.js';
@@ -15,10 +15,14 @@ import { configureAuth,sessionUser } from './auth.js';
 import {configurePublicErlc} from './public-erlc.js';
 import {configureWebsiteWorkspace} from './website-workspace.js';
 import { configureCad } from './cad.js';
+import {configureCadAccess} from './cad-access.js';
+import {cadAdmission,requireCadAdmission} from './cad-admission.js';
+import {startCadNotifications} from './cad-notifications.js';
 import { ErlcAdapter } from './erlc.js';
 import { createBot,allCommands } from '../../bot/src/main.js';
 import { dashboard } from '../../bot/src/dashboard.js';
 import { startJobs } from './jobs.js';
+import {websiteAdmin} from '../../../packages/shared/src/website-permissions.js';
 import { z } from 'zod';
 import { closeRuntime } from '../../../packages/shared/src/runtime.js';
 
@@ -41,6 +45,7 @@ app.use('/admin',dashboard(service,{...process.env,DISCORD_GUILD_ID:ids.guildId,
 configurePublicErlc(app,erlc,{sessions:async()=>{const rows=await db.scheduledSession.findMany({where:{guildId:ids.guildId,status:'scheduled',startsAt:{gte:new Date()}},orderBy:{startsAt:'asc'},take:5,select:{startsAt:true}});return rows.map(row=>({startsAt:row.startsAt.toISOString(),status:'scheduled' as const,announcementUrl:`https://discord.com/channels/${ids.guildId}/${ids.channels.sessions}`}));}});
 configureAuth(app,client);
 configureWebsiteWorkspace(app);
+configureCadAccess(app);
 configureCad(app,service);
 app.get('/api/applications',async(req,res)=>{
  const isReviewer=allowed(req.principal,'reviewer');const rows=await db.application.findMany({where:{guildId:ids.guildId,...(!isReviewer?{applicantId:req.principal.id}:{OR:[{applicantId:req.principal.id},{status:{in:['submitted','interview','more_info','accepted','denied']}}]})},orderBy:{createdAt:'desc'},take:25});res.json(rows.map(r=>isReviewer?r:{...r,privateNotes:undefined,history:undefined}));
@@ -57,8 +62,8 @@ app.post('/api/applications/:id/review',async(req,res)=>{demand(req.principal,'r
 app.get('/api/transcripts/:id',async(req,res)=>{
  const record=await db.ticketTranscript.findUniqueOrThrow({where:{id:String(req.params.id)}});if(record.expiresAt.getTime()<Date.now())throw Error('Transcript retention period ended');const ticket=store.guild(record.guildId).tickets[record.id];if(ticket?.accusedId===req.principal.id)throw Object.assign(Error('Transcript conflict restriction'),{status:403});if(record.openerId!==req.principal.id&&!allowed(req.principal,'management')&&!((record.staffIds as string[]).includes(req.principal.id)&&allowed(req.principal,'support')))throw Object.assign(Error('Transcript access denied'),{status:403});await audit(req.principal.id,'transcript.read',record.id,null,{});res.set({'Content-Type':'text/plain; charset=utf-8','Content-Disposition':`attachment; filename="LASRP-ticket-${record.id.replace(/[^a-zA-Z0-9_-]/g,'')}.txt"`}).send(record.text);
 });
-app.get('/api/telemetry',async(req,res)=>{demand(req.principal,'dispatcher','police','sheriff','fire','ems','dot');const g=store.guild(ids.guildId||'DEMO_GUILD');res.json(g.live??{healthy:false,synced:null,players:[],source:'No telemetry received'});});
-app.get('/api/config',async(req,res)=>{demand(req.principal,'management');res.json({config:store.guild(ids.guildId||'DEMO_GUILD').config,features:ids.featureFlags});});
+app.get('/api/telemetry',requireCadAdmission,async(req,res)=>{demand(req.principal,'dispatcher','police','sheriff','fire','ems','dot');const g=store.guild(ids.guildId||'DEMO_GUILD');res.json(g.live??{healthy:false,synced:null,players:[],source:'No telemetry received'});});
+app.get('/api/config',async(req,res)=>{if(!websiteAdmin(req.principal))return res.status(403).json({error:'Website administrator permission required.'});res.json({config:store.guild(ids.guildId||'DEMO_GUILD').config,features:ids.featureFlags});});
 app.post('/api/staff/requests/:id/review',async(req,res)=>{demand(req.principal,'management');const body=z.object({status:z.enum(['accepted','denied']),reason:z.string().min(3).max(1000)}).strict().parse(req.body),g=store.guild(ids.guildId||'DEMO_GUILD'),record=g.records[String(req.params.id)];if(!record||!['leave','suggestion','resignation','training'].includes(record.kind))throw Error('Request not found');if(record.user===req.principal.id)throw Error('Another manager must review your request');if(record.status!=='pending')throw Error('This request has already been reviewed');record.status=body.status;record.reason=body.reason;record.reviewer=req.principal.id;store.change(ids.guildId||'DEMO_GUILD',req.principal.id,'staff.request-reviewed',record);await store.flush();if(client.isReady()){try{const user=await client.users.fetch(record.user);const {notice}=await import('../../bot/src/panels.js');await user.send(notice('LASRP Request Review',`**Reference:** ${record.id}\n**Status:** ${body.status}\n**Review response:** ${body.reason}`,'blue',false));}catch{await audit(req.principal.id,'request.notification-failed',record.id,null,{});}}res.json(record);});
 app.get('/api/roblox-link',async(req,res)=>res.json(await db.linkedRobloxAccount.findUnique({where:{userId:req.principal.id}})));
 // Manual verification requires management evidence; no account passwords are collected.
@@ -70,16 +75,15 @@ app.use((error:unknown,req:express.Request,res:express.Response,next:express.Nex
  const message=/prisma|database|connection|DATABASE_URL|postgresql:/i.test(known)?'Database operation could not be completed. Check server logs and refresh.':known;
  console.error('API request failed:',req.method,req.path,error instanceof Error?error.name:'Error');if(!res.headersSent)res.status((error as {status?:number}).status??400).json({error:message});
 });
-const sockets=new WebSocketServer({noServer:true});
-server.on('upgrade',async(req,socket,head)=>{try{if(req.url!=='/live'||req.headers.origin!==(process.env.WEB_BASE_URL??'http://localhost:3000')){socket.destroy();return;}if(!await sessionUser(req.headers.cookie,client)){socket.destroy();return;}sockets.handleUpgrade(req,socket,head,ws=>{ws.on('error',()=>{});ws.send(JSON.stringify({type:'connected'}));setTimeout(()=>ws.close(1000,'Refresh authorization'),300000).unref();});}catch{socket.destroy();}});
-events.on('changed',()=>{for(const ws of sockets.clients)if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'refresh'}));});
+const {sockets,stop:stopCadSockets}=configureCadSockets(server,client);
 const port=Number(process.env.PORT??3000);server.listen(port,process.env.HOST??'127.0.0.1',()=>console.log(`LASRP CAD: http://localhost:${port}`));
-const stopJobs=startJobs(service,applications,erlc,store);
+const stopBackgroundJobs=startJobs(service,applications,erlc,store),stopCadNotifications=startCadNotifications(client);
+const stopJobs=async()=>{await Promise.all([stopBackgroundJobs(),stopCadNotifications()]);};
 const controlToken=randomBytes(32).toString('hex');
 fs.mkdirSync('data',{recursive:true});fs.writeFileSync('data/runtime-control.json',JSON.stringify({port,token:controlToken,pid:process.pid}),{mode:0o600});
 app.post('/internal/shutdown',(req,res)=>{const supplied=String(req.headers['x-lasrp-control']??'');if(!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress??'')||supplied.length!==controlToken.length||!timingSafeEqual(Buffer.from(supplied),Buffer.from(controlToken)))return res.sendStatus(404);res.json({ok:true});setImmediate(()=>void shutdown());});
 let shuttingDown=false;
-async function shutdown(){if(shuttingDown)return;shuttingDown=true;try{client.destroy();let shutdownTimer:ReturnType<typeof setTimeout>|undefined;await Promise.race([stopJobs(),new Promise<void>(resolve=>{shutdownTimer=setTimeout(()=>{console.error('Background refresh exceeded the shutdown grace period; closing the service.');resolve();},15000);})]);if(shutdownTimer)clearTimeout(shutdownTimer);await store.flush();for(const socket of sockets.clients)socket.terminate();client.destroy();await new Promise<void>(resolve=>server.close(()=>resolve()));await db.$disconnect();await closeRuntime();fs.rmSync('data/runtime-control.json',{force:true});}finally{process.exit(0);}}
+async function shutdown(){if(shuttingDown)return;shuttingDown=true;try{stopCadSockets();client.destroy();let shutdownTimer:ReturnType<typeof setTimeout>|undefined;await Promise.race([stopJobs(),new Promise<void>(resolve=>{shutdownTimer=setTimeout(()=>{console.error('Background refresh exceeded the shutdown grace period; closing the service.');resolve();},15000);})]);if(shutdownTimer)clearTimeout(shutdownTimer);await store.flush();for(const socket of sockets.clients)socket.terminate();client.destroy();await new Promise<void>(resolve=>server.close(()=>resolve()));await db.$disconnect();await closeRuntime();fs.rmSync('data/runtime-control.json',{force:true});}finally{process.exit(0);}}
 process.on('SIGINT',shutdown);process.on('SIGTERM',shutdown);
 
 async function connectDiscord(){

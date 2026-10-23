@@ -1,4 +1,5 @@
-import type { Express } from 'express';
+import express, {type Express} from 'express';
+import {requireCadAdmission} from './cad-admission.js';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { db,audit,changed } from '../../../packages/shared/src/database.js';
@@ -6,7 +7,7 @@ import { allowed,demand,requireAgency,agencyAccess,requireRecord,recordReadable 
 import { incidentSchema,incidentUpdate,unitSchema,characterSchema,vehicleSchema,recordSchema,recordUpdate,recordKinds } from '../../../packages/shared/src/schemas.js';
 import { ids } from '../../../config/ids.js';
 import type { CommunityService } from '../../bot/src/service.js';
-import { configureCadWorkflows,notification } from './cad-workflows.js';
+import { configureCadWorkflows,configureMemberNotifications,notification } from './cad-workflows.js';
 import { configureEvidence } from './evidence.js';
 import { configureAgencies } from './agencies.js';
 import { configurePreferences } from './preferences.js';
@@ -26,11 +27,20 @@ const demo=()=>process.env.DEMO_MODE==='true'&&process.env.NODE_ENV!=='productio
 const conflict=()=>Object.assign(Error('This record changed. Refresh and try again.'),{status:409});
 const pagination=(query:Record<string,unknown>)=>({skip:Math.max(0,Number(query.page)||0)*25,take:25});
 const normalAgencies=['police','sheriff','fire','ems','dot','dispatch','doj'];
-export function configureCad(app:Express,service:CommunityService){
+export function configureCad(parent:Express,service:CommunityService){
+ configurePreferences(parent);configureMemberNotifications(parent);
+ const app=express.Router() as unknown as Express;
+ // Attach admission to every operational route registration, not unmatched parent routes.
+ // This preserves staff applications mounted after this router in the existing API.
+ for(const method of ['get','post','put','patch','delete','head','options','all'] as const){
+  const register=(app[method] as (...args:any[])=>unknown).bind(app);
+  (app as unknown as Record<string,unknown>)[method]=(path:unknown,...handlers:unknown[])=>register(path,requireCadAdmission,...handlers);
+ }
+ parent.use(app);
  configureCadWorkflows(app);
  configureEvidence(app);
  configureAgencies(app);
- configurePreferences(app);
+
  configureCourts(app);
  configureRoblox(app);
  configureLegal(app);

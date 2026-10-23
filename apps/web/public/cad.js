@@ -4743,6 +4743,10 @@ async function api(path, method = "GET", body) {
     login();
     throw Error("Sign in to continue.");
   }
+  if (result.code === "CAD_APPROVAL_REQUIRED" || result.code === "CAD_ADMISSION_UNAVAILABLE") {
+    void showAdmission();
+    throw Error(result.error);
+  }
   if (!response.ok) throw Error(result.error ?? "Request failed");
   return result;
 }
@@ -5007,6 +5011,7 @@ async function renderPage() {
         await sessionsPage(content);
         break;
       case "Admin":
+        if (!me.capabilities?.websiteAdmin) throw Error("Website administrator permission required.");
         await adminPage(content);
         break;
       case "Police MDT":
@@ -5609,13 +5614,22 @@ function connect() {
       refreshTimer = window.setTimeout(() => void renderPage(), 500);
     }
   };
-  socket.onclose = () => {
+  socket.onclose = (e) => {
+    if (e.code === 1008 || e.code === 1011) {
+      void showAdmission();
+      return;
+    }
     if (me) setTimeout(connect, 5e3);
   };
 }
 async function boot() {
   try {
     me = await api("/me");
+    const admission = await api("/cad-access");
+    if (!admission.admitted) {
+      await showAdmission(admission);
+      return;
+    }
     const selected = decodeURIComponent(location.hash.slice(1));
     if (selected) section = selected;
     const prefs = await api("/preferences");
@@ -5638,3 +5652,21 @@ setInterval(() => {
   });
 }, 6e4);
 void boot();
+async function showAdmission(known) {
+  socket?.close();
+  socket = void 0;
+  summary = {};
+  me = void 0;
+  try {
+    const state = known ?? await api("/cad-access");
+    root.replaceChildren();
+    const body = $("main", "login-form");
+    body.append($("h1", "", "CAD approval required"), $("p", "", `Current status: ${String(state.status ?? "unavailable").replaceAll("_", " ")}. Discord sign-in alone does not grant CAD admission.`));
+    const link = $("a", "button", "View CAD application and status");
+    link.href = state.applicationUrl;
+    body.append(link);
+    root.append(body);
+  } catch {
+    login();
+  }
+}
