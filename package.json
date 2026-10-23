@@ -27,7 +27,11 @@
         "doctor": "tsx scripts/doctor.ts",
         "discover": "tsx scripts/discover-discord.ts",
         "stop": "tsx scripts/stop.ts",
-        "discord:doctor": "tsx scripts/diagnose-discord.ts"
+        "discord:doctor": "tsx scripts/diagnose-discord.ts",
+        "site:dev": "npm --prefix apps/site run dev",
+        "site:build": "npm --prefix apps/site run build",
+        "site:preview": "npm --prefix apps/site run preview",
+        "site:test": "npm --prefix apps/site test"
     },
     "dependencies": {
         "@prisma/client": "6.12.0",

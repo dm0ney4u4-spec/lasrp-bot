@@ -1,0 +1,10 @@
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { SiteLayout } from './components';
+import { Home, Departments, DepartmentPage, Applications, ApplicationStatus, Cad, Staff, Sessions, Community, Profile, NotFound } from './pages';
+import './style.css';
+import './update.css';
+import {LiveStatusProvider,ServerStatus} from './live-status';
+import {DepartmentPortal,ApplicationWorkspace} from './workspaces';
+createRoot(document.getElementById('root')!).render(<React.StrictMode><BrowserRouter><LiveStatusProvider><SiteLayout><Routes><Route path="/" element={<Home/>}/><Route path="/server-status" element={<ServerStatus/>}/><Route path="/departments" element={<Departments/>}/><Route path="/departments/:slug" element={<DepartmentPage/>}/><Route path="/departments/:slug/portal" element={<DepartmentPortal/>}/><Route path="/applications" element={<Applications/>}/><Route path="/applications/dashboard" element={<ApplicationWorkspace/>}/><Route path="/applications/status" element={<ApplicationStatus/>}/><Route path="/cad" element={<Cad/>}/><Route path="/staff" element={<Staff/>}/><Route path="/sessions" element={<Sessions/>}/><Route path="/community" element={<Community/>}/><Route path="/community/:page" element={<Community/>}/><Route path="/profile" element={<Profile/>}/><Route path="*" element={<NotFound/>}/></Routes></SiteLayout></LiveStatusProvider></BrowserRouter></React.StrictMode>);

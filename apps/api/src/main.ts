@@ -12,6 +12,8 @@ import { db,events,audit,changed } from '../../../packages/shared/src/database.j
 import { DatabaseStore } from '../../../packages/shared/src/store.js';
 import { demand,allowed } from '../../../packages/shared/src/permissions.js';
 import { configureAuth,sessionUser } from './auth.js';
+import {configurePublicErlc} from './public-erlc.js';
+import {configureWebsiteWorkspace} from './website-workspace.js';
 import { configureCad } from './cad.js';
 import { ErlcAdapter } from './erlc.js';
 import { createBot,allCommands } from '../../bot/src/main.js';
@@ -35,7 +37,10 @@ app.get('/health',async(req,res)=>{try{await db.$queryRaw`SELECT 1`;res.json({se
 app.use('/assets/branding',express.static(assetDirectory));
 // Local owner-only editor retains its own token and Discord management check.
 app.use('/admin',dashboard(service,{...process.env,DISCORD_GUILD_ID:ids.guildId,DISCORD_ADMIN_ID:ids.owners[0]}));
+// Explicitly sanitized public read route must precede the existing /api authentication gate.
+configurePublicErlc(app,erlc,{sessions:async()=>{const rows=await db.scheduledSession.findMany({where:{guildId:ids.guildId,status:'scheduled',startsAt:{gte:new Date()}},orderBy:{startsAt:'asc'},take:5,select:{startsAt:true}});return rows.map(row=>({startsAt:row.startsAt.toISOString(),status:'scheduled' as const,announcementUrl:`https://discord.com/channels/${ids.guildId}/${ids.channels.sessions}`}));}});
 configureAuth(app,client);
+configureWebsiteWorkspace(app);
 configureCad(app,service);
 app.get('/api/applications',async(req,res)=>{
  const isReviewer=allowed(req.principal,'reviewer');const rows=await db.application.findMany({where:{guildId:ids.guildId,...(!isReviewer?{applicantId:req.principal.id}:{OR:[{applicantId:req.principal.id},{status:{in:['submitted','interview','more_info','accepted','denied']}}]})},orderBy:{createdAt:'desc'},take:25});res.json(rows.map(r=>isReviewer?r:{...r,privateNotes:undefined,history:undefined}));
@@ -77,4 +82,14 @@ let shuttingDown=false;
 async function shutdown(){if(shuttingDown)return;shuttingDown=true;try{client.destroy();let shutdownTimer:ReturnType<typeof setTimeout>|undefined;await Promise.race([stopJobs(),new Promise<void>(resolve=>{shutdownTimer=setTimeout(()=>{console.error('Background refresh exceeded the shutdown grace period; closing the service.');resolve();},15000);})]);if(shutdownTimer)clearTimeout(shutdownTimer);await store.flush();for(const socket of sockets.clients)socket.terminate();client.destroy();await new Promise<void>(resolve=>server.close(()=>resolve()));await db.$disconnect();await closeRuntime();fs.rmSync('data/runtime-control.json',{force:true});}finally{process.exit(0);}}
 process.on('SIGINT',shutdown);process.on('SIGTERM',shutdown);
 
-if(process.env.BOT_ENABLED!=='false'&&process.env.DISCORD_BOT_TOKEN){await client.login(process.env.DISCORD_BOT_TOKEN);if(ids.guildId){await(await client.guilds.fetch(ids.guildId)).commands.set(allCommands.map(c=>c.toJSON()));await bootstrap();}}else console.log('Discord offline: configure DISCORD_BOT_TOKEN and config/ids.ts to enable the bot.');
+async function connectDiscord(){
+ try{
+  if(!client.isReady())await client.login(process.env.DISCORD_BOT_TOKEN);
+  if(shuttingDown)return;
+  if(ids.guildId&&process.env.DISCORD_SYNC_ON_START!=='false'){await(await client.guilds.fetch(ids.guildId)).commands.set(allCommands.map(c=>c.toJSON()));await bootstrap();}
+ }catch{
+  console.error('Discord connection or registration failed. CAD remains online; retrying in 30 seconds.');
+  if(!shuttingDown)setTimeout(()=>{if(!shuttingDown)void connectDiscord();},30000).unref();
+ }
+}
+if(process.env.BOT_ENABLED!=='false'&&process.env.DISCORD_BOT_TOKEN)void connectDiscord();else console.log('Discord offline: configure DISCORD_BOT_TOKEN and config/ids.ts to enable the bot.');

@@ -6,3 +6,6 @@ backups/
 *.dump
 .env.*
 !.env.example
+apps/site/dist/
+apps/site/test-results/
+apps/site/playwright-report/
