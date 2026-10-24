@@ -2,8 +2,9 @@ import 'dotenv/config';
 import fs from 'node:fs';
 try{const response=await fetch('http://127.0.0.1:'+(process.env.PORT??3000)+'/health',{signal:AbortSignal.timeout(1000)}),health=await response.json() as {service?:string;database?:string};if(health.service==='LASRP Operations'&&health.database==='connected'){console.log('LASRP is already running. Open http://localhost:'+(process.env.PORT??3000)+'. Use npm run stop before restarting.');process.exit(0);}}catch{}
 fs.mkdirSync('data',{recursive:true});const lock='data/startup-lock.json';
-if(fs.existsSync(lock)){const previous=JSON.parse(fs.readFileSync(lock,'utf8'));let alive=false;try{process.kill(previous.pid,0);alive=true;}catch{}if(alive){console.log('LASRP is already starting in another process. Wait for its startup window.');process.exit(0);}fs.rmSync(lock);}
-const lockHandle=fs.openSync(lock,'wx');fs.writeFileSync(lockHandle,JSON.stringify({pid:process.pid}));fs.closeSync(lockHandle);const {onShutdown:releaseOnShutdown}=await import('../packages/shared/src/runtime.js');releaseOnShutdown(async()=>{fs.rmSync(lock,{force:true});});
+const {acquireStartupLock}=await import('./startup-lock.js');const releaseLock=acquireStartupLock(lock);
+if(!releaseLock){console.log('LASRP is already starting in another verified launcher. Wait for its startup window.');process.exit(0);}
+const {onShutdown:releaseOnShutdown}=await import('../packages/shared/src/runtime.js');releaseOnShutdown(async()=>{releaseLock();});process.once('exit',releaseLock);
 if(process.env.DATABASE_MODE==='portable'){const{startPortablePostgres}=await import('./portable-postgres.js');await startPortablePostgres();}
 if(process.env.DATABASE_MODE==='local'){
  if(process.env.NODE_ENV==='production')throw Error('Use PostgreSQL hosting for production; DATABASE_MODE=local is for a single local development process.');
