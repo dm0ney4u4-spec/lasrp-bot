@@ -17,6 +17,7 @@ import { Applications } from './applications.js';
 import { Tickets } from './tickets.js';
 import {TicketSystem} from './ticket-system/service.js';
 import {ticketCommands} from './ticket-system/commands.js';
+import {GlobalBans} from './global-bans.js';
 import { Sessions,sessionCommands } from './sessions.js';
 import { staffCommand,staffAction } from './staff.js';
 import { render,notice,button } from './panels.js';
@@ -49,6 +50,8 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
  const ticketSystem=new TicketSystem(client);service.ticketSystem=ticketSystem;
  client.on(Events.ClientReady,()=>{if(client.isReady())ticketSystem.start();});
  client.on(Events.MessageCreate,message=>{void ticketSystem.message(message).catch(error=>ticketSystem.log('message_handler_failed',error));});
+ const globalBans=new GlobalBans(client,store);
+ client.on(Events.MessageCreate,message=>{void globalBans.message(message).catch(error=>globalBans.log('message_handler_failed',error));});
  const liveries=new LiveryManager(new LiveryService(new PostgresLiveryRepository(db)));
  protect(service);
  seeds.departments=departmentTemplate();seeds.community_rules=regulationsTemplate();
@@ -139,7 +142,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
  });
  client.on(Events.GuildMemberAdd,async member=>{if(member.guild.id!==ids.guildId)return;const g=store.guild(ids.guildId);if(!g.config.welcomeChannel)return;try{const channel=await member.guild.channels.fetch(g.config.welcomeChannel);if(channel?.isTextBased()&&'send'in channel)await channel.send(service.panel(g,'welcome',member));}catch{console.error('Welcome delivery failed.');}});
  client.on(Events.Error,()=>console.error('Discord connection reported an error.'));
- return {client,service,applications,ticketSystem,bootstrap:async()=>{await bootstrapCommunity(service);try{await applications.compactExistingReviews();}catch{console.error('Existing application review compaction needs attention.');}}};
+ return {client,service,applications,ticketSystem,globalBans,bootstrap:async()=>{await bootstrapCommunity(service);try{await applications.compactExistingReviews();}catch{console.error('Existing application review compaction needs attention.');}}};
 }
 async function deploy(i:ChatInputCommandInteraction,service:CommunityService,key:string){
  await i.deferReply({flags:64});if(key==='cad'&&i.user.id!==i.guild!.ownerId)throw Error('Only the server owner can deploy the CAD panel');const channelId=key==='cad'?ids.channels.cadPanel:key==='applications'?ids.channels.applicationsPanel:key==='departments'?ids.channels.departments:key==='community_rules'?ids.channels.rules:i.channelId;const g=service.store.guild(i.guildId!),old=Object.values(g.published).find((p:any)=>p.key===key&&p.channel===channelId) as {id:string}|undefined;const publication=await service.publish(i.guildId!,channelId,key,i.user.id,{},old?.id);await editReply(i,notice('Panel ready',`**${key}** published as message ${publication.message}. Repeating this command updates the existing panel.`));

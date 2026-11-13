@@ -2,6 +2,8 @@
 
 The **New York Automation ticket system** setup, exact IDs, commands, permissions, transcripts and recovery instructions are in [docs/TICKET_SYSTEM.md](docs/TICKET_SYSTEM.md).
 
+The role-restricted **`-gb @user reason`** command and its five-server setup are documented in [docs/GLOBAL_BANS.md](docs/GLOBAL_BANS.md).
+
 A runnable TypeScript bot/API and browser CAD for **New York City Roleplay**. Discord and CAD share one backend and PostgreSQL database. The supplied five branding files are included intact. All custom Discord messages use real Components V2, with uploaded local media, restrained blue styling, custom white-icon configuration, and monochrome fallbacks.
 
 **Release status:** working implementation with automated database integration tests. This is **not the complete master-spec feature catalog**. Read [BUILD_PROGRESS.md](BUILD_PROGRESS.md), [COMMAND_INVENTORY.md](COMMAND_INVENTORY.md), and [TEST_REPORT.md](TEST_REPORT.md) for exact scope. The real bot token/server were verified and a live Discord gateway connection succeeded. Real browser OAuth completion, external ER:LC behavior and graphical Discord rendering still need live validation.
