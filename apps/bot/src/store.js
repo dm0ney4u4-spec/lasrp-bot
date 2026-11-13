@@ -8,7 +8,7 @@ export class Store {
     this.data = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : { guilds: {} };
   }
   guild(id) {
-    return this.data.guilds[id] ??= { config: { community: 'Los Angeles State Roleplay', staffRoles: [], managementRoles: [], departmentRoles: [], selfRoles: [], weeklyMinutes: 120, requirements: 'Complete training and follow the staff handbook.', applications: {}, priority: 'Normal roleplay; no active priority restrictions.', maxPlayers: 40 }, templates: {}, history: [], acknowledgments: {}, cases: {}, tickets: {}, applications: {}, shifts: {}, votes: {}, published: {}, schedules: {}, records: {}, sessions: [] };
+    return this.data.guilds[id] ??= { config: { community: 'New York City Roleplay', staffRoles: [], managementRoles: [], departmentRoles: [], selfRoles: [], weeklyMinutes: 120, requirements: 'Complete training and follow the staff handbook.', applications: {}, priority: 'Normal roleplay; no active priority restrictions.', maxPlayers: 40 }, templates: {}, history: [], acknowledgments: {}, cases: {}, tickets: {}, applications: {}, shifts: {}, votes: {}, published: {}, schedules: {}, records: {}, sessions: [] };
   }
   save() {
     fs.mkdirSync(path.dirname(this.file), { recursive: true });

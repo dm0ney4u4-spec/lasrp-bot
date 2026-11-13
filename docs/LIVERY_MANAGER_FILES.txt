@@ -1,0 +1,26 @@
+Modified for this feature:
+apps/bot/src/main.ts — add guarded livery dispatch/registration and requested Halloween presence
+package.json — add explicit livery:setup and livery:catalog scripts
+tests/integration.test.ts — use an available temporary test socket port
+
+Created for this feature:
+apps/bot/src/livery/commands.ts
+apps/bot/src/livery/manager.ts
+apps/bot/src/livery/panels.ts
+packages/livery/src/model.ts
+packages/livery/src/repository.ts
+packages/livery/src/serialization.ts
+packages/livery/src/service.ts
+packages/livery/src/catalog.ts
+packages/livery/sql/001_library.sql
+scripts/livery-setup.ts
+scripts/livery-doctor.ts
+scripts/livery-catalog.ts
+imports/liveries/README.md
+imports/liveries/input-template.json
+imports/liveries/official-vehicle-catalog.json
+tests/livery.test.ts
+docs/LIVERY_MANAGER.md
+docs/LIVERY_MANAGER_FILES.txt
+
+No deployment, destructive migration, website source change, CAD source change, authentication change, or live Discord registration was performed.

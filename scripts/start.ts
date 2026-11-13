@@ -1,9 +1,9 @@
 import 'dotenv/config';
 import fs from 'node:fs';
-try{const response=await fetch('http://127.0.0.1:'+(process.env.PORT??3000)+'/health',{signal:AbortSignal.timeout(1000)}),health=await response.json() as {service?:string;database?:string};if(health.service==='LASRP Operations'&&health.database==='connected'){console.log('LASRP is already running. Open http://localhost:'+(process.env.PORT??3000)+'. Use npm run stop before restarting.');process.exit(0);}}catch{}
+try{const response=await fetch('http://127.0.0.1:'+(process.env.PORT??3000)+'/health',{signal:AbortSignal.timeout(1000)}),health=await response.json() as {service?:string;database?:string};if(health.service==='NYCRP Operations'&&health.database==='connected'){console.log('NYCRP is already running. Open http://localhost:'+(process.env.PORT??3000)+'. Use npm run stop before restarting.');process.exit(0);}}catch{}
 fs.mkdirSync('data',{recursive:true});const lock='data/startup-lock.json';
 const {acquireStartupLock}=await import('./startup-lock.js');const releaseLock=acquireStartupLock(lock);
-if(!releaseLock){console.log('LASRP is already starting in another verified launcher. Wait for its startup window.');process.exit(0);}
+if(!releaseLock){console.log('NYCRP is already starting in another verified launcher. Wait for its startup window.');process.exit(0);}
 const {onShutdown:releaseOnShutdown}=await import('../packages/shared/src/runtime.js');releaseOnShutdown(async()=>{releaseLock();});process.once('exit',releaseLock);
 if(process.env.DATABASE_MODE==='portable'){const{startPortablePostgres}=await import('./portable-postgres.js');await startPortablePostgres();}
 if(process.env.DATABASE_MODE==='local'){

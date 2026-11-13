@@ -1,5 +1,5 @@
 {
-  "name": "@lasrp/site",
+  "name": "@nycrp/site",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,15 +7,16 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
+    "dev": "node scripts/sync-public-rules.mjs && vite --host 127.0.0.1",
     "check": "tsc --noEmit",
-    "build": "npm run check && vite build && node scripts/security-headers.mjs && node scripts/audit-public.mjs",
+    "build": "node scripts/sync-public-rules.mjs && npm run check && vite build && node scripts/security-headers.mjs && node scripts/audit-public.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "test": "playwright test",
     "media:prepare": "node scripts/prepare-media.mjs && node scripts/optimize-media.mjs",
     "media:optimize": "node scripts/optimize-media.mjs"
   },
   "dependencies": {
+    "lasrp-operations": "file:../..",
     "lucide-react": "^0.468.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

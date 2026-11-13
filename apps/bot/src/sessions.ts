@@ -10,7 +10,7 @@ const cmd=(name:string,description:string)=>new SlashCommandBuilder().setName(na
 export function requireSessionRole(p:Principal){if(!p.roles.some(role=>ids.commandPolicy.sessionRoles.includes(role)))throw Error('The configured session staff role is required.');}
 export function sessionPing(payload:any){payload.components[0].components.unshift({type:10,content:ids.commandPolicy.sessionPingRoles.map(role=>`<@&${role}>`).join(' ')});payload.allowedMentions={parse:[],roles:ids.commandPolicy.sessionPingRoles};return payload;}
 export async function reserveSession(guildId:string,hostId:string){const id='SES-'+randomUUID();const result=await db.session.createMany({data:[{id,guildId,hostId,activeKey:guildId}],skipDuplicates:true});if(!result.count)throw Error('An official session is already active or starting.');return db.session.findUniqueOrThrow({where:{id}});}
-export const sessionCommands=[cmd('ssu','Start the official LASRP session'),cmd('ssd','End the official LASRP session').addStringOption(o=>o.setName('reason').setDescription('Shutdown reason').setRequired(true).setMaxLength(500)),cmd('session','Session vote or boost')
+export const sessionCommands=[cmd('ssu','Start the official NYCRP session'),cmd('ssd','End the official NYCRP session').addStringOption(o=>o.setName('reason').setDescription('Shutdown reason').setRequired(true).setMaxLength(500)),cmd('session','Session vote or boost')
  .addSubcommand(c=>c.setName('vote').setDescription('Open a session vote').addIntegerOption(o=>o.setName('votes').setDescription('Number of yes votes needed to start a session').setRequired(true).setMinValue(1).setMaxValue(1000)).addIntegerOption(o=>o.setName('minutes').setDescription('Voting duration, defaults to 15 minutes').setMinValue(1).setMaxValue(120)))
  .addSubcommand(c=>c.setName('boost').setDescription('Announce a boost for the active session'))];
 export class Sessions {
@@ -21,7 +21,7 @@ export class Sessions {
   const p=await this.principal(i.user.id);requireSessionRole(p);if(!ids.featureFlags.sessions)throw Error('Sessions are disabled.');const g=this.service.store.guild(ids.guildId);if(g.config.commandLockdown&&!ids.owners.includes(i.user.id))throw Error('Owner command lockdown is active.');
   const action=i.commandName==='ssu'?'start':i.commandName==='ssd'?'stop':i.options.getSubcommand();
   if(action==='stop'){
-   const active=await db.session.findUnique({where:{activeKey:ids.guildId}});if(!active)throw Error('No active session');g.records[`ssd-confirm:${active.id}:${i.user.id}`]={id:active.id,reason:i.options.getString('reason',true),actor:i.user.id};this.service.store.save();await this.flush();await i.reply(render({key:'ssd',title:'LASRP | CONFIRM SESSION SHUTDOWN',color:'blue',sections:[`**Reason:** ${i.options.getString('reason',true)}`,'Conclude the official session and save attendance.'],buttons:[button('Confirm Shutdown','sessionAction',`stop,${active.id}`,1)]},{community:ids.settings.community},{ephemeral:true}));return;
+   const active=await db.session.findUnique({where:{activeKey:ids.guildId}});if(!active)throw Error('No active session');g.records[`ssd-confirm:${active.id}:${i.user.id}`]={id:active.id,reason:i.options.getString('reason',true),actor:i.user.id};this.service.store.save();await this.flush();await i.reply(render({key:'ssd',title:'NYCRP | CONFIRM SESSION SHUTDOWN',color:'blue',sections:[`**Reason:** ${i.options.getString('reason',true)}`,'Conclude the official session and save attendance.'],buttons:[button('Confirm Shutdown','sessionAction',`stop,${active.id}`,1)]},{community:ids.settings.community},{ephemeral:true}));return;
   }
   await i.deferReply({flags:64});const channel=await this.channel();
   if(action==='start'){
@@ -35,7 +35,7 @@ export class Sessions {
   }else if(action==='boost'){
    const active=await db.session.findUnique({where:{activeKey:ids.guildId}});if(!active||active.status!=='active')throw Error('Start a session before boosting it.');
    if(g.records.sessionBoostAt&&Date.now()-g.records.sessionBoostAt<300000)throw Error('Wait five minutes between session boosts.');
-   await channel.send(sessionPing(render({key:'ssu',title:'LASRP | SESSION BOOST',color:'blue',sections:['The official LASRP session is active. Join the community in game for realistic roleplay.',`**Host:** <@${active.hostId}>\n**Join code:** ${g.config.joinCode||'See the server information channel.'}`]},{community:ids.settings.community})));g.records.sessionBoostAt=Date.now();this.service.store.change(ids.guildId,i.user.id,'session.boost',{sessionId:active.id});await this.flush();
+   await channel.send(sessionPing(render({key:'ssu',title:'NYCRP | SESSION BOOST',color:'blue',sections:['The official NYCRP session is active. Join the community in game for realistic roleplay.',`**Host:** <@${active.hostId}>\n**Join code:** ${g.config.joinCode||'See the server information channel.'}`]},{community:ids.settings.community})));g.records.sessionBoostAt=Date.now();this.service.store.change(ids.guildId,i.user.id,'session.boost',{sessionId:active.id});await this.flush();
   }else throw Error('Unknown session action');
   changed();await editReply(i,notice('Session updated',`The announcement was sent to <#${ids.channels.sessions}>.`));
  }

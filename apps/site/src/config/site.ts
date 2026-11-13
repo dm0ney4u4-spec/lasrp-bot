@@ -1,7 +1,7 @@
 import {invites} from './invites';
 // Public, nonsecret website settings. Authoritative accounts remain in the existing API.
 export const site = {
-  name: 'Los Angeles State Roleplay', short: 'LASRP',
+  name: 'New York City Roleplay', short: 'NYCRP',
   discord: invites.main,
   applications: 'https://discord.com/channels/1529507818452029650/1557893259840458792',
   sessions: 'https://discord.com/channels/1529507818452029650/1529553843199807590',

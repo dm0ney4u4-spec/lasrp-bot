@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {chromium} from '@playwright/test';
 
 // Integration check against the real local backend. No request interception or fixtures.
-const origin=process.env.LASRP_PREVIEW_ORIGIN??'http://127.0.0.1:5173';
+const origin=process.env.NYCRP_PREVIEW_ORIGIN??process.env.LASRP_PREVIEW_ORIGIN??'http://127.0.0.1:5173';
 const browser=await chromium.launch();
 try{
  const page=await browser.newPage();

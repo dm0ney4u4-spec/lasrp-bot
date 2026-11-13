@@ -1,4 +1,4 @@
-# LASRP public website
+# NYCRP public website
 
 A React / TypeScript / Vite member website alongside the existing Discord bot and CAD. Discord login, member profiles, department access, existing preferences, and logout reuse the shared backend. See `docs/MEMBER_PLATFORM.md` for current authentication setup and limitations, and `docs/WEBSITE_UPDATE.md` for live ER tracking. No deployment or database migration was performed.
 
@@ -78,3 +78,7 @@ See `docs/WEBSITE_PHASE_1.md` at the repository root for the architecture, file 
 ## Explicit CAD admission
 
 Discord sign-in alone no longer grants CAD access. `/cad` provides the access application/status workflow, `/cad/review` is restricted to explicit CAD reviewers/revokers, and `/management` is restricted to the owner or configured website administrators. Operational APIs and WebSockets enforce PostgreSQL approval independently of frontend links. See `docs/CAD_ADMISSION.md` for migration, permissions, notifications, and configuration.
+
+## NYC branding
+
+See `docs/NYC_REBRAND.md` for the supplied NYC assets, live Discord panel links, canonical New York department routes, and preserved legacy aliases. Public regulations synchronize only community/in-game policies; staff policies are excluded from the frontend bundle.

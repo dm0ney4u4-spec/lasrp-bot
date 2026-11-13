@@ -8,7 +8,7 @@ import { allowed,type Principal } from '../../../packages/shared/src/permissions
 import { render,notice } from './panels.js';
 import { editReply } from './replies.js';
 import type { CommunityService } from './service.js';
-const command=new SlashCommandBuilder().setName('staff').setDescription('LASRP staff management and records').setDMPermission(false);
+const command=new SlashCommandBuilder().setName('staff').setDescription('NYCRP staff management and records').setDMPermission(false);
 const rank=(name:string)=>command.addSubcommand(c=>c.setName(name).setDescription(`${name==='promote'?'Promote':'Demote'} a staff member`).addUserOption(o=>o.setName('member').setDescription('Staff member').setRequired(true)).addRoleOption(o=>o.setName('rank').setDescription('Configured new rank role').setRequired(true)).addStringOption(o=>o.setName('reason').setDescription('Private management reason').setRequired(true).setMaxLength(1000)));
 rank('promote');rank('demote');
 for(const action of ['suspend','investigate','reinstate'])command.addSubcommand(c=>c.setName(action).setDescription(action==='suspend'?'Suspend staff roles':action==='investigate'?'Place staff under investigation':'Restore roles from a suspension or investigation').addUserOption(o=>o.setName('member').setDescription('Affected staff member').setRequired(true)).addStringOption(o=>o.setName('reason').setDescription('Private management reason').setRequired(true).setMinLength(5).setMaxLength(1000)));
@@ -33,9 +33,9 @@ async function staffActionImpl(service:CommunityService,i:ChatInputCommandIntera
   const profile=g.records[`profile:${user.id}`]??{},cases=Object.values(g.cases).filter((c:any)=>c.kind==='staff_infraction'&&c.memberId===user.id) as any[],active=cases.filter(c=>c.status==='active'&&(!c.expires||c.expires>Date.now()));
   if(action==='history'){await i.reply(notice('Internal Infraction History',cases.slice(-12).map(c=>`**${c.id}:** ${c.type} — ${c.status}\n**Reason:** ${c.reason}\n**Points:** ${c.points}`).join('\n')||'No internal infractions recorded.'));return;}
   const shifts=(Object.values(g.shifts) as any[]).filter(s=>s.user===user.id),minutes=Math.floor(shifts.reduce((sum,s)=>sum+((s.end??Date.now())-s.start),0)/60000);
-  await i.reply(notice('LASRP Staff Profile',`**Member:** <@${user.id}>\n**Training:** ${profile.training??'Not assessed'}\n**Supervisor:** ${profile.supervisor??'Not assigned'}\n**Status:** ${profile.status??'active'}\n**Active internal points:** ${active.reduce((sum,c)=>sum+c.points,0)}\n**Recorded duty minutes:** ${minutes}\n${manager?`**Management notes:** ${profile.notes?.length??0}`:''}`));return;
+  await i.reply(notice('NYCRP Staff Profile',`**Member:** <@${user.id}>\n**Training:** ${profile.training??'Not assessed'}\n**Supervisor:** ${profile.supervisor??'Not assigned'}\n**Status:** ${profile.status??'active'}\n**Active internal points:** ${active.reduce((sum,c)=>sum+c.points,0)}\n**Recorded duty minutes:** ${minutes}\n${manager?`**Management notes:** ${profile.notes?.length??0}`:''}`));return;
  }
- if(action==='roster'){if(!allowed(p,'moderator'))throw Error('Staff access required');await i.deferReply({flags:64});const members=await i.guild!.members.fetch();const staff=members.filter(m=>g.config.staffRoles.some((r:string)=>m.roles.cache.has(r))).first(25);await editReply(i,notice('LASRP Staff Roster',staff.map(m=>`**${m.displayName}:** ${m.roles.highest.name}`).join('\n')||'No members have configured staff roles.'));return;}
+ if(action==='roster'){if(!allowed(p,'moderator'))throw Error('Staff access required');await i.deferReply({flags:64});const members=await i.guild!.members.fetch();const staff=members.filter(m=>g.config.staffRoles.some((r:string)=>m.roles.cache.has(r))).first(25);await editReply(i,notice('NYCRP Staff Roster',staff.map(m=>`**${m.displayName}:** ${m.roles.highest.name}`).join('\n')||'No members have configured staff roles.'));return;}
  if((['promote','demote','suspend','investigate','reinstate'].includes(action)||group==='infraction')&&!staffAuthority&&!p.groups.includes('owner'))throw Error('Configured staff promotion / infraction role required');
  if(!manager)throw Error('Management access required');
  if(action==='remove'&&(!caseRecord||caseRecord.kind!=='staff_infraction'))throw Error('Internal case not found');
@@ -45,12 +45,12 @@ async function staffActionImpl(service:CommunityService,i:ChatInputCommandIntera
  if(!ids.owners.includes(i.user.id)&&target.roles.highest.position>=actor.roles.highest.position)throw Error('The affected member is at or above your rank');
  await i.deferReply({flags:64});
  const profile=g.records[`profile:${targetId}`]??={};
- if(action==='remove'){await revokeDiscipline(service,target,actor,bot,caseRecord,i.options.getString('reason',true));await audit(i.user.id,'staff.infraction-revoked',caseRecord.id,null,{reason:caseRecord.revocationReason});try{await target.user.send(notice('LASRP Staff Infraction Revoked',`**Case:** ${caseRecord.id}\n**Reason:** ${caseRecord.revocationReason}`,'blue',false));}catch{await audit(i.user.id,'staff.infraction-dm-failed',caseRecord.id,null,{});}}
+ if(action==='remove'){await revokeDiscipline(service,target,actor,bot,caseRecord,i.options.getString('reason',true));await audit(i.user.id,'staff.infraction-revoked',caseRecord.id,null,{reason:caseRecord.revocationReason});try{await target.user.send(notice('NYCRP Staff Infraction Revoked',`**Case:** ${caseRecord.id}\n**Reason:** ${caseRecord.revocationReason}`,'blue',false));}catch{await audit(i.user.id,'staff.infraction-dm-failed',caseRecord.id,null,{});}}
  else if(['suspend','investigate','reinstate'].includes(action)){
   const reason=i.options.getString('reason',true);
   if(action==='reinstate'){const restriction=await restoreStaff(service,target,actor,bot,reason);for(const c of Object.values(g.cases) as any[])if(c.restrictionId===restriction.id&&c.status==='active'){c.status='revoked';c.revocationReason=reason;}await save(service,i.user.id,'staff.restriction-revoked',{member:target.id,restriction:restriction.id,reason});}
   else{await issueDiscipline(service,target,actor,bot,action==='suspend'?'suspended':'investigation',reason,'Staff status command');await save(service,i.user.id,'staff.restriction',{member:target.id,status:profile.status,reason});}
-  try{await target.user.send(notice('LASRP Staff Status Updated',`**Status:** ${profile.status}\n**Reason:** ${reason}`,'blue',false));}catch{await audit(i.user.id,'staff.status-dm-failed',target.id,null,{});}
+  try{await target.user.send(notice('NYCRP Staff Status Updated',`**Status:** ${profile.status}\n**Reason:** ${reason}`,'blue',false));}catch{await audit(i.user.id,'staff.status-dm-failed',target.id,null,{});}
  }
  else if(action==='note'){profile.notes??=[];profile.notes.push({text:i.options.getString('text',true),actor:i.user.id,at:Date.now()});await save(service,i.user.id,'staff.private-note',{member:user.id,note:profile.notes.at(-1)});}
  else if(action==='training'){profile.training=i.options.getString('status',true);profile.supervisor=`<@${i.options.getUser('supervisor',true).id}>`;await save(service,i.user.id,'staff.training',{member:user.id,training:profile.training,supervisor:profile.supervisor});}
@@ -71,7 +71,7 @@ async function staffActionImpl(service:CommunityService,i:ChatInputCommandIntera
   await log.send(notice('Restricted Staff Rank Change',`**Member:** <@${user.id}>\n**Previous:** ${oldRank?.name??'Not previously ranked'}\n**New:** ${newRank.name}\n**Manager:** <@${i.user.id}>\n**Private reason:** ${reason}`,'blue',false));
   const vars={...service.variables(g,actor),member:`<@${user.id}>`,old_rank:oldRank?.name??'Not previously ranked',new_rank:newRank.name,manager:`<@${i.user.id}>`};
   if(g.config.promotionChannel){const channel=await i.guild!.channels.fetch(g.config.promotionChannel);if(channel?.isTextBased()&&'send'in channel)await channel.send(render(service.template(g,action==='promote'?'promotion':'demotion'),vars));}
-  try{await user.send(notice('LASRP Staff Rank Updated',`**Previous:** ${oldRank?.name??'Not previously ranked'}\n**New:** ${newRank.name}\n${action==='promote'?'Thank you for your service. Contact your supervisor for your next responsibilities.':'Your staff assignment has changed. Contact management privately with questions.'}`,'blue',false));}catch{await audit(i.user.id,'staff.rank-dm-failed',change.id,null,{});}
+  try{await user.send(notice('NYCRP Staff Rank Updated',`**Previous:** ${oldRank?.name??'Not previously ranked'}\n**New:** ${newRank.name}\n${action==='promote'?'Thank you for your service. Contact your supervisor for your next responsibilities.':'Your staff assignment has changed. Contact management privately with questions.'}`,'blue',false));}catch{await audit(i.user.id,'staff.rank-dm-failed',change.id,null,{});}
  }
  changed();await editReply(i,notice('Staff Record Saved','The authorized staff change and its audit record have been saved.'));
 }

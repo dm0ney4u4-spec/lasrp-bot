@@ -38,6 +38,7 @@ export class CommunityService {
     const g = this.store.guild(guildId), guild = await this.client.guilds.fetch(guildId);
     if(key==='cad'){if(actor!==guild.ownerId)throw Error('Only the server owner may deploy CAD');channelId=ids.channels.cadPanel;}
     if(key==='applications')channelId=ids.channels.applicationsPanel;
+    if(key==='departments')channelId=ids.channels.departments;
     if(key==='community_rules')channelId=ids.channels.rules;
     const member = await guild.members.fetch(actor);
     requireAccess(member, g.config, 'management');
@@ -51,7 +52,8 @@ export class CommunityService {
     if (publishedId) {
       const p = g.published[publishedId];
       if (!p || p.channel !== channelId) throw Error('Published panel does not match channel');
-      message = await (await channel.messages.fetch(p.message)).edit(payload);
+      let existing;try{existing=await channel.messages.fetch(p.message);}catch(error){if(error.code!==10008)throw error;}
+      message=existing?await existing.edit(payload):await channel.send(payload);
     } else message = await channel.send(payload);
     const publication = { id: publishedId ?? id(), key, channel: channelId, message: message.id, vars };
     g.published[publication.id] = publication;

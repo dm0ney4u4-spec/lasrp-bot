@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 if(!process.env.DATABASE_URL)throw Error('DATABASE_URL is required');
-fs.mkdirSync('backups',{recursive:true});const file=`backups/LASRP-${new Date().toISOString().replace(/[:.]/g,'-')}.dump`;
+fs.mkdirSync('backups',{recursive:true});const file=`backups/NYCRP-${new Date().toISOString().replace(/[:.]/g,'-')}.dump`;
 const database=new URL(process.env.DATABASE_URL);
 const result=spawnSync('pg_dump',['--format=custom',`--file=${file}`],{env:{...process.env,PGHOST:database.hostname,PGPORT:database.port||'5432',PGUSER:decodeURIComponent(database.username),PGPASSWORD:decodeURIComponent(database.password),PGDATABASE:database.pathname.slice(1)},stdio:'inherit'});if(result.status!==0)throw Error('pg_dump failed. Install PostgreSQL client tools and check database connectivity.');
 const evidenceDirectory=file+'.evidence';fs.mkdirSync(evidenceDirectory,{recursive:true});let fileCount=0;

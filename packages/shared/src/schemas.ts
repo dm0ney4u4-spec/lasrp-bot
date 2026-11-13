@@ -21,7 +21,7 @@ export const questions=[
  'Confirm that you meet the configured eligibility requirements; do not provide your exact birthdate.',
  'Time zone and usual weekly availability.',
  'Previous moderation or ER:LC roleplay experience and responsibilities.',
- 'Why do you want to join the LASRP staff team?',
+ 'Why do you want to join the NYCRP staff team?',
  'What makes you a suitable moderator? Include strengths and areas for growth.',
  'How would you handle a user insulting another member in chat?',
  'How would you handle a suspected exploiter when evidence is incomplete?',

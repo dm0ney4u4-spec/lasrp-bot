@@ -1,6 +1,6 @@
-# LASRP Operations · LASRP CAD
+# NYCRP Operations · NYCRP CAD
 
-A runnable TypeScript bot/API and browser CAD for **Los Angeles State Roleplay**. Discord and CAD share one backend and PostgreSQL database. The supplied five branding files are included intact. All custom Discord messages use real Components V2, with uploaded local media, restrained blue styling, custom white-icon configuration, and monochrome fallbacks.
+A runnable TypeScript bot/API and browser CAD for **New York City Roleplay**. Discord and CAD share one backend and PostgreSQL database. The supplied five branding files are included intact. All custom Discord messages use real Components V2, with uploaded local media, restrained blue styling, custom white-icon configuration, and monochrome fallbacks.
 
 **Release status:** working implementation with automated database integration tests. This is **not the complete master-spec feature catalog**. Read [BUILD_PROGRESS.md](BUILD_PROGRESS.md), [COMMAND_INVENTORY.md](COMMAND_INVENTORY.md), and [TEST_REPORT.md](TEST_REPORT.md) for exact scope. The real bot token/server were verified and a live Discord gateway connection succeeded. Real browser OAuth completion, external ER:LC behavior and graphical Discord rendering still need live validation.
 
@@ -165,10 +165,14 @@ Use a restricted production DB user and managed encrypted disk/backups. `npm run
 
 ## Updated Discord configuration
 
-See [channel routing, command restrictions, OAuth fix, and Windows launch instructions](docs/DISCORD_CONFIGURATION.md). Double-click START_LASRP.cmd to run the bot and CAD; use STOP_LASRP.cmd to stop safely.
+See [channel routing, command restrictions, OAuth fix, and Windows launch instructions](docs/DISCORD_CONFIGURATION.md). Double-click START_NYCRP.cmd to run the bot and CAD; use STOP_NYCRP.cmd to stop safely.
 
 Staff ranks, automatic team badges, and warning/strike workflows: [Staff workflow guide](docs/STAFF_WORKFLOWS.md).
 
 ## Startup repair
 
 The current embedded database was recovered into durable local PostgreSQL; verified 28 tables / 33 recovered rows, connected bot/database health, clean stop/restart, and safe duplicate-start handling. See [startup recovery instructions](docs/STARTUP_RECOVERY.md). The original files and recovery exports remain preserved.
+
+## New York City Roleplay
+
+The community has been rebranded in place. See [NYC_REBRAND.md](docs/NYC_REBRAND.md) for published panels, artwork mappings, compatibility aliases, and the remaining ticket configuration IDs.

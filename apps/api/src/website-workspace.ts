@@ -5,7 +5,7 @@ import {db} from '../../../packages/shared/src/database.js';
 import {websiteDepartments} from '../../../config/website.js';
 import {cadAdmission} from './cad-admission.js';
 import {websiteAdmin} from '../../../packages/shared/src/website-permissions.js';
-const departmentAgencies={lapd:'police',lasd:'sheriff',lafd:'fire',dot:'dot'} as const;
+const departmentAgencies={nypd:'police',nycso:'sheriff',nyfd:'fire',nydot:'dot'} as const;
 function authenticated(req:Request,res:Response){if(!req.principal){res.status(401).json({error:'Sign in with Discord to continue.'});return false;}return true;}
 // These routes are registered AFTER the existing /api session gate, never as public endpoints.
 export function configureWebsiteWorkspace(app:Express,database:Pick<typeof db,'application'>=db,admissionCheck:typeof cadAdmission=cadAdmission){
@@ -29,7 +29,7 @@ export function configureWebsiteWorkspace(app:Express,database:Pick<typeof db,'a
   res.set('Cache-Control','no-store').json({identity:{id:req.principal.id,name:req.principal.name},capabilities:{reviewer,management},departments:Object.entries(departmentAgencies).filter(([,agency])=>agencyAccess(req.principal,agency)).map(([slug])=>slug),applications:mine,reviewQueue});
  });
  app.get('/api/website/departments/:slug',async(req,res)=>{
-  if(!authenticated(req,res))return;const slug=String(req.params.slug),agency=departmentAgencies[slug as keyof typeof departmentAgencies];
+  if(!authenticated(req,res))return;const requested=String(req.params.slug),slug=({lapd:'nypd',lasd:'nycso',lafd:'nyfd',dot:'nydot',chp:'nysp'} as Record<string,string>)[requested]??requested,agency=departmentAgencies[slug as keyof typeof departmentAgencies];
   if(!agency)return res.status(409).json({error:'Department permissions have not been configured for this portal.'});
   if(!agencyAccess(req.principal,agency))return res.status(403).json({error:'Department access required.'});
   const config=websiteDepartments[slug as keyof typeof websiteDepartments],management=websiteAdmin(req.principal)||config.commandRoleIds.some(id=>req.principal.roles.includes(id));

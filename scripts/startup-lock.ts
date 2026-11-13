@@ -10,7 +10,7 @@ export function processIdentity(pid:number):string|null{
 }
 export function acquireStartupLock(file:string,options:{pid?:number;identity?:string;lookup?:(pid:number)=>string|null}={}){
  const pid=options.pid??process.pid,lookup=options.lookup??processIdentity,identity=options.identity??lookup(pid);
- if(!identity)throw Error('Could not verify the launcher process identity. Close other LASRP launchers and try again.');
+ if(!identity)throw Error('Could not verify the launcher process identity. Close other NYCRP launchers and try again.');
  if(fs.existsSync(file)){
   let previous:{pid?:number;identity?:string};try{const parsed=JSON.parse(fs.readFileSync(file,'utf8'));previous=parsed&&typeof parsed==='object'?parsed:{};}catch{previous={};}
   const actual=typeof previous.pid==='number'?lookup(previous.pid):null;

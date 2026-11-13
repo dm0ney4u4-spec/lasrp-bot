@@ -1,9 +1,15 @@
+import {regulationsTemplate,regulationsInteraction} from './regulations.js';
+import{departmentTemplate,departmentInteraction}from'./departments.js';
+import {liveryCommand} from './livery/commands.js';
+import {LiveryManager} from './livery/manager.js';
+import {LiveryService} from '../../../packages/livery/src/service.js';
+import {PostgresLiveryRepository} from '../../../packages/livery/src/repository.js';
 import {acknowledgeInteraction}from'./acknowledgment.js';
 import fs from 'node:fs';
 import { bootstrapCommunity } from './community.js';
 import { signalPanic } from '../../api/src/panic.js';
 import { syncAutomod } from './automod.js';
-import { Client,GatewayIntentBits,Events,SlashCommandBuilder,PermissionFlagsBits,ActionRowBuilder,ChannelSelectMenuBuilder,RoleSelectMenuBuilder,ContainerBuilder,type Interaction,type ChatInputCommandInteraction } from 'discord.js';
+import { Client,GatewayIntentBits,Events,ActivityType,SlashCommandBuilder,PermissionFlagsBits,ActionRowBuilder,ChannelSelectMenuBuilder,RoleSelectMenuBuilder,ContainerBuilder,type Interaction,type ChatInputCommandInteraction } from 'discord.js';
 import { ids } from '../../../config/ids.js';
 import { commands as baseCommands,command as baseCommand } from './commands.js';
 import { CommunityService } from './service.js';
@@ -27,21 +33,24 @@ export const extraCommands=[
  command('panic','Alert on-duty responders to a fictional unit emergency').addStringOption(o=>o.setName('reason').setDescription('Fictional emergency details and location').setRequired(true).setMinLength(5).setMaxLength(500)),
  command('security','Protected operations and security review').addSubcommand(c=>c.setName('automod').setDescription('Management: synchronize configured native AutoMod rules')).addSubcommand(c=>c.setName('status').setDescription('Security posture and incidents')).addSubcommand(c=>c.setName('lockdown').setDescription('Owner: lock dangerous commands and public text channels').addStringOption(o=>o.setName('reason').setDescription('Reason').setRequired(true))).addSubcommand(c=>c.setName('unlock').setDescription('Owner: restore command and channel access')).addSubcommand(c=>c.setName('mode').setDescription('Owner: choose monitoring mode').addStringOption(o=>o.setName('mode').setDescription('Response mode').setRequired(true).addChoices({name:'Monitor Only',value:'monitor'},{name:'Alert and Review',value:'review'},{name:'Auto Contain (owner opt-in required)',value:'contain'}))).addSubcommand(c=>c.setName('test').setDescription('Create a clearly marked test incident')),
  command('applications','Staff recruitment').addSubcommand(c=>c.setName('status').setDescription('View your application status')).addSubcommand(c=>c.setName('open').setDescription('Open staff recruitment')).addSubcommand(c=>c.setName('close').setDescription('Close recruitment')).addSubcommand(c=>c.setName('panel').setDescription('Deploy the application panel')),
- command('setup','Validate and configure LASRP').addSubcommand(c=>c.setName('validate').setDescription('Check IDs, permissions, DB and branding')).addSubcommand(c=>c.setName('wizard').setDescription('Bind a channel or role').addStringOption(o=>o.setName('setting').setDescription('Setting').setRequired(true).addChoices(...['sessionChannel','dispatchChannel','applicationReviewChannel','moderationLogChannel','securityChannel','ticketCategory','staffRoles','managementRoles','departmentRoles','verifiedRole'].map(value=>({name:value,value}))))).addSubcommand(c=>c.setName('roles').setDescription('Bind a role group shared by Discord and CAD').addStringOption(o=>o.setName('group').setDescription('Permission group').setRequired(true).addChoices(...bindableRoles.map(value=>({name:value,value}))))),
+ command('setup','Validate and configure NYCRP').addSubcommand(c=>c.setName('validate').setDescription('Check IDs, permissions, DB and branding')).addSubcommand(c=>c.setName('wizard').setDescription('Bind a channel or role').addStringOption(o=>o.setName('setting').setDescription('Setting').setRequired(true).addChoices(...['sessionChannel','dispatchChannel','applicationReviewChannel','moderationLogChannel','securityChannel','ticketCategory','staffRoles','managementRoles','departmentRoles','verifiedRole'].map(value=>({name:value,value}))))).addSubcommand(c=>c.setName('roles').setDescription('Bind a role group shared by Discord and CAD').addStringOption(o=>o.setName('group').setDescription('Permission group').setRequired(true).addChoices(...bindableRoles.map(value=>({name:value,value}))))),
  command('panel','Read, deploy or refresh a V2 panel').addSubcommand(c=>c.setName('read').setDescription('Read a panel privately').addStringOption(o=>o.setName('name').setDescription('Panel key').setRequired(true))).addSubcommand(c=>c.setName('deploy').setDescription('Create or update a public panel').addStringOption(o=>o.setName('name').setDescription('Panel key').setRequired(true))),
- command('help','Show available LASRP commands'),command('cad','Server owner: deploy CAD information').addSubcommand(c=>c.setName('panel').setDescription('Deploy or refresh the CAD panel in its configured channel')),
+ command('help','Show available NYCRP commands'),command('cad','Server owner: deploy CAD information').addSubcommand(c=>c.setName('panel').setDescription('Deploy or refresh the CAD panel in its configured channel')),
  command('erlc','Read live ER:LC information').addSubcommand(c=>c.setName('status').setDescription('Server health and population')).addSubcommand(c=>c.setName('players').setDescription('Live player list')).addSubcommand(c=>c.setName('queue').setDescription('Queue size')).addSubcommand(c=>c.setName('message').setDescription('Send an approved in-game announcement').addStringOption(o=>o.setName('text').setDescription('Announcement').setRequired(true).setMaxLength(160))),
 ];
-export const allCommands=[...baseCommands.filter(c=>!['setup','panel','cad','security','session','staff'].includes(c.name)),...extraCommands.filter(c=>c.name!=='panic'),...sessionCommands,staffCommand];
+export const allCommands=[...baseCommands.filter(c=>!['setup','panel','cad','security','session','staff'].includes(c.name)),...extraCommands.filter(c=>c.name!=='panic'),...sessionCommands,staffCommand,liveryCommand];
 export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
  const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMembers,GatewayIntentBits.GuildModeration,GatewayIntentBits.DirectMessages,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent]});
+ client.on(Events.ClientReady,ready=>ready.user.setPresence({status:'online',activities:[{name:'Custom Status',type:ActivityType.Custom,state:'New York City Roleplay'}]}));
  const service=new CommunityService(client,store),applications=new Applications(client,service);
  const tickets=new Tickets(client,service);
+ const liveries=new LiveryManager(new LiveryService(new PostgresLiveryRepository(db)));
  protect(service);
+ seeds.departments=departmentTemplate();seeds.community_rules=regulationsTemplate();
  // Replace the previous guild-modal entry point with the durable DM application flow.
  seeds.applications.buttons=[button('Apply via DM','apply','0',1),button('Requirements','panel','application_guidelines'),button('Application Status','applicationStatus')];delete seeds.applications.select;
- seeds.applications.sections=['Join the Los Angeles State Roleplay staff team. Applications are completed privately through DMs, answered once in order, and reviewed by authorized leadership. Answers cannot be edited; there is no pause or back button.','**Recruitment:** {recruitment_status}\n**Requirements:** {application_requirements}'];
- seeds.cad={key:'cad',title:'LASRP CAD',color:'blue',sections:['The shared fictional public-safety workspace for dispatch, responders, and civilians.','**CAD:** {cad_url}\nThe current localhost address works only on the hosting computer. Community-wide access requires a public HTTPS host; this panel will use WEB_BASE_URL after hosting is configured.\nCreate fictional characters and vehicles, submit calls, and access department records according to your assigned role.'],buttons:[button('Launch CAD','web','cad'),button('Create Civilian Profile','web','civilian'),button('Help','panel','help')]};
+ seeds.applications.sections=['Join the New York City Roleplay staff team. Applications are completed privately through DMs, answered once in order, and reviewed by authorized leadership. Answers cannot be edited; there is no pause or back button.','**Recruitment:** {recruitment_status}\n**Requirements:** {application_requirements}'];
+ seeds.cad={key:'cad',title:'NYCRP CAD',color:'blue',sections:['New York City Roleplay CAD and MDT for dispatch, responders, and civilians. Discord sign-in does not grant admission: submit a CAD access application and wait for explicit approval.','**CAD:** {cad_url}\nThe current localhost address works only on the hosting computer. Community-wide access requires a public HTTPS host; this panel will use WEB_BASE_URL after hosting is configured.\nCreate fictional characters and vehicles, submit calls, and access department records according to your assigned role.'],buttons:[button('Launch CAD','web','cad'),button('Create Civilian Profile','web','civilian'),button('Help','panel','help')]};
  const originalVars=service.variables.bind(service);service.variables=(g:any,member?:any)=>({...originalVars(g,member),community:ids.settings.community,cad_url:process.env.WEB_BASE_URL??'http://localhost:3000',recruitment_status:applications.settings().open?'OPEN':'CLOSED',application_requirements:applications.settings().requirements});
  const principal=async(userId:string):Promise<Principal>=>applications.principal(userId);
  const sessions=new Sessions(client,service,principal);
@@ -50,7 +59,12 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
  client.on(Events.InteractionCreate,async i=>{
   const actorKey=i.user.id;
   try{
+   // Livery owns its early acknowledgement/modal routing and exact identity guard.
+   // Run before generic handlers, role lookups, or database access for unrelated features.
+   if(await liveries.interaction(i))return;
    i=await acknowledgeInteraction(i);
+   if(await regulationsInteraction(i))return;
+   if(await departmentInteraction(i))return;
    if(await applications.interaction(i))return;
    if(await tickets.interaction(i))return;
    if(await sessions.interaction(i))return;
@@ -65,7 +79,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
      if(action==='status'||action==='test'){
       if(!allowed(p,'security'))throw Error('Security team access required');
       if(action==='test'){const test={id:'SEC-TEST-'+Date.now(),kind:'explicit_test',status:'awaiting_review',actor:i.user.id,at:Date.now()};g.records[test.id]=test;store.change(ids.guildId,i.user.id,'security.test',test);await store.flush();}
-      await i.reply(notice('LASRP Security',`**Mode:** ${g.config.security?.securityMode??ids.settings.securityMode}\n**Owner auto-containment opt-in:** ${ids.settings.autoContainEnabled?'enabled':'disabled'}\n**Command lockdown:** ${g.config.commandLockdown?'active':'inactive'}\n**Recent incidents:** ${Object.values(g.records).filter((r:any)=>r.id?.startsWith('SEC-')).length}\nReview full incident records in Staff Center.`));return;
+      await i.reply(notice('NYCRP Security',`**Mode:** ${g.config.security?.securityMode??ids.settings.securityMode}\n**Owner auto-containment opt-in:** ${ids.settings.autoContainEnabled?'enabled':'disabled'}\n**Command lockdown:** ${g.config.commandLockdown?'active':'inactive'}\n**Recent incidents:** ${Object.values(g.records).filter((r:any)=>r.id?.startsWith('SEC-')).length}\nReview full incident records in Staff Center.`));return;
      }
      if(!ids.owners.includes(i.user.id))throw Error('Only an explicitly configured owner can change emergency security settings');
      if(action==='mode'){const mode=i.options.getString('mode',true);if(mode==='contain'&&!ids.settings.autoContainEnabled)throw Error('Enable autoContainEnabled explicitly in config/ids.ts before selecting containment');g.config.security={...g.config.security,securityMode:mode};store.change(ids.guildId,i.user.id,'security.mode',{mode});await store.flush();await i.reply(notice('Security mode saved',mode));return;}
@@ -73,7 +87,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
     }
     if(i.commandName==='applications'){
      const action=i.options.getSubcommand();
-     if(action==='status'){const rows=await db.application.findMany({where:{applicantId:i.user.id,guildId:ids.guildId},orderBy:{createdAt:'desc'},take:10});await i.reply(notice('Your applications',rows.map(a=>`**LASRP-APP-${String(a.number).padStart(6,'0')}:** ${a.status}`).join('\n')||'No applications yet.'));return;}
+     if(action==='status'){const rows=await db.application.findMany({where:{applicantId:i.user.id,guildId:ids.guildId},orderBy:{createdAt:'desc'},take:10});await i.reply(notice('Your applications',rows.map(a=>`**NYCRP-APP-${String(a.number).padStart(6,'0')}:** ${a.status}`).join('\n')||'No applications yet.'));return;}
      await management(i.user.id);
      if(action==='panel'){await deploy(i,service,'applications');return;}
      const g=store.guild(ids.guildId);g.config.applicationSettings={...applications.settings(),open:action==='open'};store.change(ids.guildId,i.user.id,'recruitment-status',{open:action==='open'});await store.flush();await i.reply(notice('Recruitment updated',`Applications are now ${action==='open'?'open':'closed'}.`));return;
@@ -81,7 +95,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
     if(i.commandName==='panel'){const key=i.options.getString('name',true);if(i.options.getSubcommand()==='deploy'){await management(i.user.id);await deploy(i,service,key);}else await i.reply(service.panel(store.guild(ids.guildId),key,await i.guild!.members.fetch(i.user.id),{},0,true));return;}
     if(i.commandName==='setup'){
      await management(i.user.id);
-     if(i.options.getSubcommand()==='validate'){await i.deferReply({flags:64});await editReply(i,notice('LASRP Setup Validation',await validateSetup(service,erlc)));return;}
+     if(i.options.getSubcommand()==='validate'){await i.deferReply({flags:64});await editReply(i,notice('NYCRP Setup Validation',await validateSetup(service,erlc)));return;}
      const setting=i.options.getSubcommand()==='roles'?'role~'+i.options.getString('group',true):i.options.getString('setting',true),role=setting.startsWith('role~')||setting.endsWith('Roles')||setting==='verifiedRole';
      if((setting==='managementRoles'||setting==='role~communityManagement')&&!ids.owners.includes(i.user.id))throw Error('Only configured owners can bind management roles');
      const payload=notice('Setup Wizard',`Choose the ${role?'role':'channel'} for **${setting}**.`),container=new ContainerBuilder(payload.components[0]);
@@ -89,7 +103,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
      else container.addActionRowComponents(new ActionRowBuilder<ChannelSelectMenuBuilder>().addComponents(new ChannelSelectMenuBuilder().setCustomId(`ls:setupBind:${setting}`)));
      await i.reply({...payload,components:[container]});return;
     }
-    if(i.commandName==='help'){const p=await principal(i.user.id);await i.reply(notice('LASRP Operations | Help',`**Members:** Applications: <#${ids.channels.applicationsPanel}>. CAD: <#${ids.channels.cadPanel}>. /applications status\n${allowed(p,'host','moderator')?'**Operations:** /ssu, /ssd, /session vote, /session boost, /moderate\n':''}${allowed(p,'management')?'**Management:** /setup, /panel deploy, /staff, /case, /security, /applications open or close\n':''}**CAD:** ${process.env.WEB_BASE_URL??'http://localhost:3000'}\nOnly registered commands are available.`));return;}
+    if(i.commandName==='help'){const p=await principal(i.user.id);await i.reply(notice('NYCRP Operations | Help',`**Members:** Applications: <#${ids.channels.applicationsPanel}>. CAD: <#${ids.channels.cadPanel}>. /applications status\n${allowed(p,'host','moderator')?'**Operations:** /ssu, /ssd, /session vote, /session boost, /moderate\n':''}${allowed(p,'management')?'**Management:** /setup, /panel deploy, /staff, /case, /security, /applications open or close\n':''}**CAD:** ${process.env.WEB_BASE_URL??'http://localhost:3000'}\nOnly registered commands are available.`));return;}
     if(i.commandName==='cad'){if(i.user.id!==i.guild!.ownerId)throw Error('Only the server owner can deploy the CAD panel');await deploy(i,service,'cad');return;}
     if(i.commandName==='erlc'){
      const p=await principal(i.user.id);if(!allowed(p,'moderator','host','dispatcher'))throw Error('Operational access required');await i.deferReply({flags:64});const action=i.options.getSubcommand();
@@ -106,7 +120,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
    }
    if((i.isButton()||i.isStringSelectMenu())&&i.customId.startsWith('ls:apply:')){if(i.channelId!==ids.channels.applicationsPanel)throw Error('Start applications from the designated applications channel');await i.deferReply({flags:64});await applications.start(i.user.id);await editReply(i,notice('Check your DMs','Your application is ready.'));return;}
    if(i.isButton()&&i.customId.startsWith('ls:applicationStatus:')){const rows=await db.application.findMany({where:{applicantId:i.user.id,guildId:ids.guildId},orderBy:{createdAt:'desc'},take:10});await i.reply(notice('Application status',rows.map(x=>`**${x.number}:** ${x.status}`).join('\n')||'No applications yet.'));return;}
-   if(i.isButton()&&i.customId.startsWith('ls:web:')){const tab=i.customId.slice('ls:web:'.length);await i.reply(notice('LASRP CAD',`[Open your secure CAD workspace](${process.env.WEB_BASE_URL??'http://localhost:3000'}/#${tab==='civilian'?'Civilian Portal':'Dashboard'})`));return;}
+   if(i.isButton()&&i.customId.startsWith('ls:web:')){const tab=i.customId.slice('ls:web:'.length);await i.reply(notice('NYCRP CAD',`[Open your secure CAD workspace](${process.env.WEB_BASE_URL??'http://localhost:3000'}/#${tab==='civilian'?'Civilian Portal':'Dashboard'})`));return;}
    if(i.isButton()&&/^ls:(dispatchAssign|dispatchAck):/.test(i.customId)){
     const [,action,incidentId]=i.customId.split(':'),incident=await db.incident.findUnique({where:{id:incidentId}});
     if(incident){const p=await principal(i.user.id);requireAgency(p,incident.agency);const unit=await db.unit.findUnique({where:{userId:i.user.id}});if(!unit)throw Error('Go on duty in CAD first');if(action==='dispatchAssign'){await db.callAssignment.upsert({where:{incidentId_unitId:{incidentId,unitId:unit.id}},create:{incidentId,unitId:unit.id,assignedBy:i.user.id},update:{}});}await audit(i.user.id,action,incident.id,null,{unitId:unit.id});changed();await i.reply(notice('CAD Updated',`Call **${incident.id}** ${action==='dispatchAssign'?'assigned to your unit':'acknowledged'}.`));return;}
@@ -122,7 +136,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
  return {client,service,applications,bootstrap:async()=>{await bootstrapCommunity(service);try{await applications.compactExistingReviews();}catch{console.error('Existing application review compaction needs attention.');}}};
 }
 async function deploy(i:ChatInputCommandInteraction,service:CommunityService,key:string){
- await i.deferReply({flags:64});if(key==='cad'&&i.user.id!==i.guild!.ownerId)throw Error('Only the server owner can deploy the CAD panel');const channelId=key==='cad'?ids.channels.cadPanel:key==='applications'?ids.channels.applicationsPanel:key==='community_rules'?ids.channels.rules:i.channelId;const g=service.store.guild(i.guildId!),old=Object.values(g.published).find((p:any)=>p.key===key&&p.channel===channelId) as {id:string}|undefined;const publication=await service.publish(i.guildId!,channelId,key,i.user.id,{},old?.id);await editReply(i,notice('Panel ready',`**${key}** published as message ${publication.message}. Repeating this command updates the existing panel.`));
+ await i.deferReply({flags:64});if(key==='cad'&&i.user.id!==i.guild!.ownerId)throw Error('Only the server owner can deploy the CAD panel');const channelId=key==='cad'?ids.channels.cadPanel:key==='applications'?ids.channels.applicationsPanel:key==='departments'?ids.channels.departments:key==='community_rules'?ids.channels.rules:i.channelId;const g=service.store.guild(i.guildId!),old=Object.values(g.published).find((p:any)=>p.key===key&&p.channel===channelId) as {id:string}|undefined;const publication=await service.publish(i.guildId!,channelId,key,i.user.id,{},old?.id);await editReply(i,notice('Panel ready',`**${key}** published as message ${publication.message}. Repeating this command updates the existing panel.`));
 }
 export async function validateSetup(service:CommunityService,erlc:ErlcAdapter){
  const lines:string[]=[];await db.$queryRaw`SELECT 1`;lines.push('◆ PostgreSQL: connected');

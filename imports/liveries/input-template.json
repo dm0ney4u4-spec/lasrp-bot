@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "liveries": [
+    {
+      "department": "LAPD",
+      "vehicleName": "REPLACE_WITH_EXACT_DOCUMENTED_ERLC_VEHICLE_NAME",
+      "vehicleCategory": "Unclassified",
+      "name": "REPLACE_WITH_YOUR_LIVERY_NAME",
+      "decals": {
+        "front": [],
+        "rear": [],
+        "left": [{"position": "REPLACE_WITH_OFFICIAL_SLOT_LABEL", "assetId": null}],
+        "right": [],
+        "top": []
+      },
+      "requiredSides": ["front", "rear", "left", "right", "top"],
+      "primaryColor": null,
+      "secondaryColor": null,
+      "rankRestriction": null,
+      "division": null,
+      "creator": null,
+      "sourceUrl": null,
+      "installation": "Follow the current official vehicle template and in-game editor. Match each official decal position, submit for review, and test manually.",
+      "notes": "INCOMPLETE TEMPLATE ONLY. Do not import unchanged. No actual decals or compatibility claims are provided.",
+      "previewUrl": null
+    }
+  ]
+}

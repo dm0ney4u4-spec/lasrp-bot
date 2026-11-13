@@ -10,7 +10,7 @@ import { editReply } from './replies.js';
 import type { CommunityService } from './service.js';
 
 type Interactive=Extract<Interaction,{customId:string}>;
-const number=(a:Application)=>`LASRP-APP-${String(a.number).padStart(6,'0')}`;
+const number=(a:Application)=>`NYCRP-APP-${String(a.number).padStart(6,'0')}`;
 const activeStatuses=['intro','draft','paused','more_info','interview','submitted','submitting'];
 export class Applications {
  constructor(private client:Client,private service:CommunityService){}
@@ -43,7 +43,7 @@ export class Applications {
    if(app.step>=questions.length){sections.push('All answers are final. Submit your application to the review team.');buttons=[button('Submit Application','dm',`submit,${app.id}`,1)];}
    else{sections.push(`### Question ${app.step+1} of ${questions.length}`,questions[app.step]);buttons=[button('Answer','dm',`answer,${app.id},${app.version},${app.step}`,1)];}
   }else{sections.push('Your application is saved. Check status here or from the community application panel.');if(app.decisionReason)sections.push(`**Review response:** ${app.decisionReason}`);if(app.status==='more_info')buttons.push(button('Provide Clarification','dm',`followup,${app.id}`));}
-  return render({key:'applications',title:'LASRP | STAFF APPLICATION',color:'blue',sections,buttons},{community:ids.settings.community});
+  return render({key:'applications',title:'NYCRP | STAFF APPLICATION',color:'blue',sections,buttons},{community:ids.settings.community});
  }
  async send(app:Application){const user=await this.client.users.fetch(app.applicantId);return user.send(this.card(app));}
  async update(app:Application,data:Record<string,unknown>,actor:string,action:string){
@@ -104,12 +104,12 @@ export class Applications {
    if(action==='history'){await i.reply(notice('Private application history',JSON.stringify({history:app.history,notes:app.privateNotes},null,2).slice(-2800)));return true;}
    if(action==='claim'){if(app.reviewerId&&app.reviewerId!==i.user.id)throw Error('Already claimed by another reviewer');const next=await this.update(app,{reviewerId:i.user.id},i.user.id,'application.claim');await i.reply(notice('Application claimed',`${number(app)} is assigned to you.`));await this.refreshReview(next);return true;}
    if(!['accept','deny','interview','more_info','note'].includes(action))throw Error('Unknown review action');
-   await i.showModal(new ModalBuilder().setCustomId(`ls:appDecision:${action},${app.id},${app.version}`).setTitle('LASRP Application Review').addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(new TextInputBuilder().setCustomId('reason').setLabel(action==='note'?'Private staff note':'Reason / applicant instructions').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1500))));return true;
+   await i.showModal(new ModalBuilder().setCustomId(`ls:appDecision:${action},${app.id},${app.version}`).setTitle('NYCRP Application Review').addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(new TextInputBuilder().setCustomId('reason').setLabel(action==='note'?'Private staff note':'Reason / applicant instructions').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1500))));return true;
   }
   return false;
  }
  own(app:Application,userId:string){if(app.applicantId!==userId||app.guildId!==ids.guildId)throw Error('Application access denied');}
- answerModal(customId:string,title:string,value?:string){const input=new TextInputBuilder().setCustomId('answer').setLabel(title).setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(2500);if(value)input.setValue(value);return new ModalBuilder().setCustomId(customId).setTitle('LASRP Staff Application').addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));}
+ answerModal(customId:string,title:string,value?:string){const input=new TextInputBuilder().setCustomId('answer').setLabel(title).setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(2500);if(value)input.setValue(value);return new ModalBuilder().setCustomId(customId).setTitle('NYCRP Staff Application').addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));}
  async review(app:Application,actor:string,action:string,reason:string){
   const principal=await this.principal(actor);if(!allowed(principal,'reviewer'))throw Error('Application reviewer access required');if(actor===app.applicantId)throw Error('You cannot review your own application');
   if(action==='accept'&&!allowed(principal,'management'))throw Error('Management must approve acceptance');

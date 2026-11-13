@@ -1,5 +1,5 @@
 {
-    "name": "lasrp-operations",
+    "name": "nycrp-operations",
     "version": "1.0.0",
     "private": true,
     "type": "module",
@@ -8,6 +8,12 @@
     },
     "scripts": {
         "dev": "tsx watch apps/api/src/main.ts",
+        "site:dev": "npm --prefix apps/site run dev",
+        "site:build": "npm --prefix apps/site run build",
+        "site:preview": "npm --prefix apps/site run preview",
+        "site:test": "npm --prefix apps/site test",
+        "livery:setup": "tsx scripts/livery-setup.ts",
+        "livery:catalog": "tsx scripts/livery-catalog.ts",
         "start": "tsx scripts/start.ts",
         "bot": "tsx scripts/start.ts",
         "register": "tsx scripts/register.ts",
@@ -27,11 +33,7 @@
         "doctor": "tsx scripts/doctor.ts",
         "discover": "tsx scripts/discover-discord.ts",
         "stop": "tsx scripts/stop.ts",
-        "discord:doctor": "tsx scripts/diagnose-discord.ts",
-        "site:dev": "npm --prefix apps/site run dev",
-        "site:build": "npm --prefix apps/site run build",
-        "site:preview": "npm --prefix apps/site run preview",
-        "site:test": "npm --prefix apps/site test"
+        "discord:doctor": "tsx scripts/diagnose-discord.ts"
     },
     "dependencies": {
         "@prisma/client": "6.12.0",

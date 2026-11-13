@@ -4,7 +4,7 @@ import { assets, bannerFor } from '../../../config/assets.js';
 import { icon, monochrome } from '../../../config/icons.js';
 
 export const colors = { blue: 0x244a91, green: 0x428574, red: 0xa85461, orange: 0xb28e54, purple: 0x6689ba, cyan: 0x6689ba, gray: 0x747f8d };
-export const actions = new Set(['panel', 'ack', 'verify', 'ticket', 'apply', 'applicationStatus', 'vote', 'results', 'case', 'appeal', 'history', 'shift', 'ticketAction', 'review', 'dispatchAck', 'dispatchAssign', 'role', 'record', 'feedback', 'activity', 'dm', 'appReview', 'appPage', 'web', 'ticketV2', 'setupBind', 'sessionAction']);
+export const actions = new Set(['regulations','department', 'panel', 'ack', 'verify', 'ticket', 'apply', 'applicationStatus', 'vote', 'results', 'case', 'appeal', 'history', 'shift', 'ticketAction', 'review', 'dispatchAck', 'dispatchAssign', 'role', 'record', 'feedback', 'activity', 'dm', 'appReview', 'appPage', 'web', 'ticketV2', 'setupBind', 'sessionAction']);
 export function safeUrl(value) {
   const u = new URL(value);
   if (u.protocol !== 'https:' || !['cdn.discordapp.com', 'media.discordapp.net', 'images.unsplash.com'].includes(u.hostname) || u.username || u.password) throw Error('Media URL is not on the HTTPS allowlist.');
@@ -27,14 +27,14 @@ export function render(template, vars = {}, { page = 0, ephemeral = false } = {}
   const container = new ContainerBuilder().setAccentColor(colors[template.color] ?? template.color ?? colors.blue);
   const heading = `# ${icon('shield')} ${monochrome(template.title)}`;
   if (template.thumbnail) container.addSectionComponents(new SectionBuilder().addTextDisplayComponents(text(heading)).setThumbnailAccessory(new ThumbnailBuilder().setURL(safeUrl(template.thumbnail))));
-  else container.addSectionComponents(new SectionBuilder().addTextDisplayComponents(text(heading)).setThumbnailAccessory(new ThumbnailBuilder().setURL('attachment://la-logo.png').setDescription('LASRP white LA logo')));
+  else container.addSectionComponents(new SectionBuilder().addTextDisplayComponents(text(heading)).setThumbnailAccessory(new ThumbnailBuilder().setURL('attachment://nyc-logo.png').setDescription('New York City Roleplay logo')));
   container.addSeparatorComponents(new SeparatorBuilder());
   for (const section of pages[page]) {
     if (section === '---') container.addSeparatorComponents(new SeparatorBuilder());
     else container.addTextDisplayComponents(text(section));
   }
   if (template.media?.length) container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(...template.media.map(url => new MediaGalleryItemBuilder().setURL(safeUrl(url)))));
-  else container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL('attachment://panel-banner.png').setDescription(`${monochrome(template.title)} — Los Angeles State Roleplay`)));
+  else container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL('attachment://panel-banner.png').setDescription(`${monochrome(template.title)} — New York City Roleplay`)));
   const buttonIcon=b=>{const key=/accept|acknowledge|confirm|submit|begin|apply|yes/i.test(b.label)?'check':/deny|cancel|close|no$/i.test(b.label)?'close':'shield';return ids.emojis[key]?{id:ids.emojis[key],name:key}:undefined;};
   const buttons = [...(template.buttons ?? [])];
   if (pages.length > 1) {
@@ -43,8 +43,9 @@ export function render(template, vars = {}, { page = 0, ephemeral = false } = {}
   }
   for (let i = 0; i < buttons.length; i += 5) container.addActionRowComponents(new ActionRowBuilder().addComponents(...buttons.slice(i, i + 5).map(b => new ButtonBuilder().setLabel(monochrome(b.label)).setStyle(b.style ?? 2).setCustomId(actionId(b.action, interpolate(b.args ?? '', vars))).setEmoji(buttonIcon(b)))));
   if (template.select) container.addActionRowComponents(new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId(actionId(template.select.action, template.select.args ?? '')).setPlaceholder(template.select.placeholder ?? 'Choose an option').addOptions(template.select.options.map(o=>({...o,label:monochrome(o.label)})))));
+  container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL('attachment://nyc-footer.png').setDescription('New York City Roleplay')));
   container.addSeparatorComponents(new SeparatorBuilder()).addTextDisplayComponents(text(`-# {community}${pages.length > 1 ? ` • Page ${page + 1}/${pages.length}` : ''} • ${template.footer ?? 'Operations & Public Safety'}`));
-  const payload = { components: [container.toJSON()], flags: MessageFlags.IsComponentsV2 | (ephemeral ? MessageFlags.Ephemeral : 0), allowedMentions: { parse: [] }, attachments:[], files:[{attachment:assets.logo,name:'la-logo.png'},...(!template.media?.length?[{attachment:bannerFor(template.key??template.title),name:'panel-banner.png'}]:[])] };
+  const payload = { components: [container.toJSON()], flags: MessageFlags.IsComponentsV2 | (ephemeral ? MessageFlags.Ephemeral : 0), allowedMentions: { parse: [] }, attachments:[], files:[{attachment:assets.logo,name:'nyc-logo.png'},...(!template.media?.length?[{attachment:bannerFor(template.key??template.title),name:'panel-banner.png'}]:[]),{attachment:assets.footer,name:'nyc-footer.png'}] };
   validatePayload(payload);
   return payload;
 }
@@ -67,10 +68,10 @@ export function validatePayload(payload) {
   return payload;
 }
 export function notice(title, description, color = 'blue', ephemeral = true) {
-  return render({ title, color, sections: [description] }, { community: 'Los Angeles State Roleplay' }, { ephemeral });
+  return render({ title, color, sections: [description] }, { community: 'New York City Roleplay' }, { ephemeral });
 }
 export function validateTemplate(template) {
   if (!template || typeof template.title !== 'string' || !template.title.trim()) throw Error('Title is required');
-  for (let page = 0; page < (template.pages?.length ?? 1); page++) render(template, { community: 'Los Angeles State Roleplay' }, { page });
+  for (let page = 0; page < (template.pages?.length ?? 1); page++) render(template, { community: 'New York City Roleplay' }, { page });
   return template;
 }

@@ -4566,7 +4566,7 @@ async function mutualAidPage(content) {
 }
 function bulkExport() {
   form("Export CAD records", [{ name: "recordIds", label: "Authorized record IDs (one per line, maximum 20)", type: "textarea", wide: true }, { name: "includeEvidence", label: "Include original evidence and custody logs (maximum 32 MiB)", type: "checkbox", required: false }], async (d) => {
-    await downloadCad("/exports", "LASRP-CAD-export.zip", { recordIds: d.recordIds.split("\n").map((s) => s.trim()).filter(Boolean), includeEvidence: d.includeEvidence });
+    await downloadCad("/exports", "NYCRP-CAD-export.zip", { recordIds: d.recordIds.split("\n").map((s) => s.trim()).filter(Boolean), includeEvidence: d.includeEvidence });
   }, "The ZIP includes full JSON records, PDF copies, audit history and a SHA-256 manifest.");
 }
 async function investigationTasks(row) {
@@ -4892,10 +4892,10 @@ function login() {
   root.replaceChildren();
   const login2 = $("main", "login"), art = $("div", "login-art"), image = document.createElement("img");
   image.src = "/assets/branding/blank-blue-banner.png";
-  image.alt = "Official Los Angeles State Roleplay blue artwork";
+  image.alt = "Official New York City Roleplay blue artwork";
   art.append(image);
   const caption = $("div", "caption");
-  caption.append($("div", "eyebrow", "LOS ANGELES STATE ROLEPLAY"), $("h1", "", "One community.\nA connected response."), $("p", "", "Operations, dispatch, and public safety."));
+  caption.append($("div", "eyebrow", "NEW YORK CITY ROLEPLAY"), $("h1", "", "One community.\nA connected response."), $("p", "", "Operations, dispatch, and public safety."));
   art.append(caption);
   const body = $("div", "login-form"), logo = document.createElement("img");
   logo.src = "/assets/branding/la-logo.png";
@@ -4903,8 +4903,8 @@ function login() {
   logo.alt = "LA";
   const sign = $("a", "button", "Continue with Discord");
   sign.href = "/auth/discord";
-  body.append(logo, $("div", "eyebrow", "LASRP CAD"), $("h1", "", "Your operations workspace."), $("p", "", "Sign in with your community Discord account. Your assigned roles determine your access to dispatch, agency records, and staff tools."), sign, $("footer", "", "FICTIONAL ER:LC ROLEPLAY \u2022 NO REAL EMERGENCY SERVICES"));
-  const errors = { bot_offline: "The Discord bot is offline. Start the LASRP service before signing in.", cancelled: "Discord authorization was cancelled. Try signing in again.", invalid_client: "The Discord OAuth client secret is invalid. The owner must update DISCORD_OAUTH_CLIENT_SECRET in .env.", invalid_grant: "The sign-in code expired or the redirect URL differs from the registered callback. Try again from the configured CAD address.", discord_exchange: "Discord could not complete sign-in. Try again shortly.", membership: "Join the LASRP Discord server using this account before signing in.", state: "Your sign-in session expired or cookies were blocked. Start sign-in again from the configured CAD address." };
+  body.append(logo, $("div", "eyebrow", "NYCRP CAD"), $("h1", "", "Your operations workspace."), $("p", "", "Sign in with your community Discord account. Your assigned roles determine your access to dispatch, agency records, and staff tools."), sign, $("footer", "", "FICTIONAL ER:LC ROLEPLAY \u2022 NO REAL EMERGENCY SERVICES"));
+  const errors = { bot_offline: "The Discord bot is offline. Start the NYCRP service before signing in.", cancelled: "Discord authorization was cancelled. Try signing in again.", invalid_client: "The Discord OAuth client secret is invalid. The owner must update DISCORD_OAUTH_CLIENT_SECRET in .env.", invalid_grant: "The sign-in code expired or the redirect URL differs from the registered callback. Try again from the configured CAD address.", discord_exchange: "Discord could not complete sign-in. Try again shortly.", membership: "Join the NYCRP Discord server using this account before signing in.", state: "Your sign-in session expired or cookies were blocked. Start sign-in again from the configured CAD address." };
   const code = new URLSearchParams(location.search).get("login_error");
   if (code) body.append($("p", "error", errors[code] ?? "Sign-in could not be completed. Try again."));
   login2.append(art, body);
@@ -4924,7 +4924,7 @@ function shell() {
   logo.src = "/assets/branding/la-logo.png";
   logo.alt = "LA";
   const brandText = $("div");
-  brandText.append($("strong", "", "LASRP CAD"), $("small", "", "LASRP \u2022 CAD / MDT"));
+  brandText.append($("strong", "", "NYCRP CAD"), $("small", "", "NYCRP \u2022 CAD / MDT"));
   brand.append(logo, brandText);
   aside.append(brand, $("div", "nav-label", "WORKSPACE"));
   const nav = $("nav");
@@ -4934,7 +4934,7 @@ function shell() {
     b.append($("span", "symbol", symbol), $("span", "", name));
     nav.append(b);
   });
-  aside.append(nav, $("div", "sidebar-footer", "Los Angeles State Roleplay\nOperations & Public Safety\n\nFICTIONAL ROLEPLAY SYSTEM"));
+  aside.append(nav, $("div", "sidebar-footer", "New York City Roleplay\nOperations & Public Safety\n\nFICTIONAL ROLEPLAY SYSTEM"));
   const main = $("main", "main"), top = $("header", "topbar"), timeEl = $("time", "", (/* @__PURE__ */ new Date()).toLocaleString());
   const identity = $("div", "identity");
   identity.append($("span", "avatar", me.user.name.slice(0, 1).toUpperCase()), $("span", "", me.user.name), btn("Notifications", () => go("Notifications"), "small"), btn("Preferences", editPreferences, "small"), btn("Sign out", async () => {
@@ -4952,7 +4952,7 @@ function shell() {
 }
 function heading(content, title, subtitle, buttons = []) {
   const head = $("div", "page-head"), text = $("div");
-  text.append($("div", "eyebrow", "LOS ANGELES STATE ROLEPLAY"), $("h1", "", title), $("p", "", subtitle));
+  text.append($("div", "eyebrow", "NEW YORK CITY ROLEPLAY"), $("h1", "", title), $("p", "", subtitle));
   head.append(text, toolbar(...buttons));
   content.append(head);
   if (me.demo) content.append($("div", "notice demo-label", "DEMO ENVIRONMENT \u2022 fictional training data. No live Discord or ER:LC actions are simulated."));
@@ -4960,9 +4960,9 @@ function heading(content, title, subtitle, buttons = []) {
 function hero(content, title, description, banner = "blank-blue-banner.png") {
   const h = $("section", "hero"), img = document.createElement("img");
   img.src = "/assets/branding/" + banner;
-  img.alt = "LASRP official branded artwork";
+  img.alt = "NYCRP official branded artwork";
   const text = $("div");
-  text.append($("div", "eyebrow", "LASRP CAD"), $("h2", "", title), $("p", "", description));
+  text.append($("div", "eyebrow", "NYCRP CAD"), $("h2", "", title), $("p", "", description));
   h.append(img, text);
   content.append(h);
 }
@@ -5073,7 +5073,7 @@ async function home(content) {
   }
   content.append(grid);
   dashboardWidgets(grid, widgets, preferences, (p) => api("/preferences", "PUT", p), toast);
-  content.append($("div", "notice", "LASRP CAD stores fictional roleplay records. Use your local emergency number for real emergencies."));
+  content.append($("div", "notice", "NYCRP CAD stores fictional roleplay records. Use your local emergency number for real emergencies."));
 }
 function newIncident() {
   form("Create roleplay incident", [{ name: "location", label: "Location / postal", max: 160 }, { name: "type", label: "Incident type", max: 80 }, { name: "priority", label: "Priority", type: "select", options: ["1", "2", "3", "4", "5"], value: "3" }, { name: "agency", label: "Responding agency", type: "select", options: ["police", "sheriff", "fire", "ems", "dot"] }, { name: "narrative", label: "Narrative \u2014 fictional roleplay only", type: "textarea", wide: true, max: 3e3 }], async (d) => {
@@ -5465,7 +5465,7 @@ async function recordsPage(content) {
 }
 function openRecord(r) {
   const body = detail(r.data.title, { reference: r.id, type: r.kind, agency: r.agency, status: r.status, subject: r.subjectId ?? "\u2014", incident: r.incidentId ?? "\u2014", ...r.data, sealed: r.sealed, version: r.version });
-  show(body, [btn("Download PDF", () => downloadCad("/records/" + r.id + "/pdf", "LASRP-" + r.id + ".pdf")), btn("Revise / review", () => form("Update record", [{ name: "status", label: "Status", type: "select", options: ["draft", "submitted", ...has("supervisor", "doj") ? ["approved", "denied", "issued", "cancelled"] : [], "closed"], value: r.status }, { name: "title", label: "Title", value: r.data.title, max: 150 }, { name: "narrative", label: "Narrative", type: "textarea", wide: true, value: r.data.narrative, max: 6e3 }, ...has("supervisor", "doj") ? [{ name: "sealed", label: "Seal record", type: "checkbox", value: r.sealed, required: false }] : []], async (d) => {
+  show(body, [btn("Download PDF", () => downloadCad("/records/" + r.id + "/pdf", "NYCRP-" + r.id + ".pdf")), btn("Revise / review", () => form("Update record", [{ name: "status", label: "Status", type: "select", options: ["draft", "submitted", ...has("supervisor", "doj") ? ["approved", "denied", "issued", "cancelled"] : [], "closed"], value: r.status }, { name: "title", label: "Title", value: r.data.title, max: 150 }, { name: "narrative", label: "Narrative", type: "textarea", wide: true, value: r.data.narrative, max: 6e3 }, ...has("supervisor", "doj") ? [{ name: "sealed", label: "Seal record", type: "checkbox", value: r.sealed, required: false }] : []], async (d) => {
     const { status, sealed, ...fields } = d;
     await api("/records/" + r.id, "PATCH", { version: r.version, status, ...sealed !== void 0 ? { sealed } : {}, data: { ...Object.fromEntries(Object.entries(r.data).filter(([key]) => !["trafficStopId", "operationalCaseId"].includes(key))), ...fields } });
   })), btn("Evidence files", () => evidencePanel(r)), ...r.data.details ? [btn("Revise report details", () => editReportDetails(r))] : [], btn("History / custody", async () => {
@@ -5531,14 +5531,14 @@ async function evidencePanel(record) {
 async function applicationPage(content) {
   heading(content, "Staff applications", "Start and complete your application in Discord DMs.");
   content.append(btn("Open applications channel", () => window.open("https://discord.com/channels/1529507818452029650/1557893259840458792", "_blank", "noopener"), "primary"));
-  hero(content, "Serve the LASRP community.", "Thoughtful decisions start with clear standards. Your application is saved after every response.", "applications-banner.png");
+  hero(content, "Serve the NYCRP community.", "Thoughtful decisions start with clear standards. Your application is saved after every response.", "applications-banner.png");
   const rows = await api("/applications");
   if (!rows.length) {
     content.append(empty("No applications yet", "Begin an application when recruitment is open."));
     return;
   }
   rows.forEach((a) => {
-    const box = card(`LASRP-APP-${String(a.number).padStart(6, "0")}`);
+    const box = card(`NYCRP-APP-${String(a.number).padStart(6, "0")}`);
     box.append(badge(a.status), $("p", "muted", `Applicant: ${a.applicantId} \u2022 Updated ${time(a.updatedAt)}`));
     if (a.applicantId === me.user.id && ["intro", "draft", "paused"].includes(a.status)) {
       box.append($("p", "", "Continue answering the current question in your Discord DMs. Answers are final once submitted."));

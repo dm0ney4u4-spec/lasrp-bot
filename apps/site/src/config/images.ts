@@ -1,26 +1,23 @@
-export interface ImageAsset { src: string; alt: string; position?: string; webp?: string; }
-const image = (src: string, alt: string, position = 'center'): ImageAsset => ({src,alt,position});
-// Replace paths here as approved ER:LC artwork arrives. Add webp alongside src for picture fallback.
-export const images = {
-  logo: image('/images/brand/la-logo.png','LASRP Los Angeles monogram'),
-  home: image('/images/homepage/hero.svg','Branded blueprint of a roleplay emergency response district'),
-  departments: {...image('/images/brand/departments-banner.png','Los Angeles Roleplay departments banner'),webp:'/images/brand/departments-banner.webp'},
-  applications: {...image('/images/brand/applications-banner.png','LASRP applications banner'),webp:'/images/brand/applications-banner.webp'},
-  sessions: {...image('/images/brand/sessions-banner.png','LASRP sessions banner'),webp:'/images/brand/sessions-banner.webp'},
-  community: {...image('/images/brand/server-header.png','Los Angeles State Roleplay community banner'),webp:'/images/brand/server-header.webp'},
-  cad: image('/images/cad/hero.svg','LASRP operations blueprint illustration'),
-  staff: image('/images/staff/hero.svg','LASRP staff insignia illustration'),
-  fallback: image('/images/community/fallback.svg','LASRP branded image placeholder'),
-  lapd: image('/images/lapd/hero.svg','LAPD branded patrol district illustration'),
-  lasd: image('/images/lasd/hero.svg','LASD branded county operations illustration'),
-  lafd: image('/images/lafd/hero.svg','LAFD branded emergency response illustration'),
-  dot: image('/images/dot/hero.svg','DOT branded road network illustration'),
-  chp: image('/images/community/fallback.svg','CHP navy branded placeholder; original department media not yet supplied'),
+﻿export interface ImageAsset {src:string;alt:string;position?:string;webp?:string}
+const branded=(file:string,alt:string):ImageAsset=>({src:'/images/brand/'+file+'.png',webp:'/images/brand/'+file+'.webp',alt});
+export const images={
+ logo:{src:'/images/brand/nyc-logo.png',alt:'New York City Roleplay logo'},
+ home:branded('nyc-general','New York City Roleplay — Your story, your city, your legacy'),
+ departments:branded('nyc-general','New York City Roleplay departments'),
+ applications:branded('nyc-general','New York City Roleplay applications'),
+ sessions:branded('nyc-general','New York City Roleplay sessions'),
+ community:branded('nyc-general','New York City Roleplay community'),
+ cad:branded('nyc-general','New York City Roleplay CAD and MDT'),
+ staff:branded('nyc-general','New York City Roleplay staff'),
+ assistance:branded('nyc-assistance','New York City Roleplay assistance'),
+ regulations:branded('nyc-rules','New York City Roleplay regulations'),
+ footer:{src:'/images/brand/nyc-footer.png',alt:'New York City Roleplay'},
+ fallback:{src:'/images/community/fallback.svg',alt:'New York City Roleplay branded placeholder'},
+ nypd:branded('nyc-police','Supplied New York Police Department banner'),
+ nycso:branded('nyc-sheriff','Supplied New York City Sheriff artwork; original image caption retained'),
+ nyfd:branded('nyc-fire','New York Fire Department emblem'),
+ nydot:branded('nyc-dot','New York Department of Transportation banner'),
+ nysp:branded('nyc-general','New York State Police placeholder; department not activated'),
 } satisfies Record<string,ImageAsset>;
-
-// Replace any individual gallery slot here, without editing page components.
-export const departmentGalleries: Record<string,{label:string;asset:ImageAsset}[]> = Object.fromEntries(
-  ['lapd','lasd','lafd','dot','chp'].map(slug=>[slug,['Fleet showcase','Uniform standards','Training in action'].map(label=>({label,asset:{...images[slug as 'lapd'|'lasd'|'lafd'|'dot'|'chp'],alt:`${slug.toUpperCase()} branded placeholder for ${label.toLowerCase()}`}}))])
-);
-// Future verified leadership portraits can use this same ImageAsset shape.
-export type LeadershipPortrait = { displayName:string; title:string; image:ImageAsset };
+export const departmentGalleries:Record<string,{label:string;asset:ImageAsset}[]>=Object.fromEntries(['nypd','nycso','nyfd','nydot','nysp'].map(slug=>[slug,['Fleet showcase','Uniform standards','Training in action'].map(label=>({label,asset:{...images[slug as 'nypd'|'nycso'|'nyfd'|'nydot'|'nysp'],alt:`${slug.toUpperCase()} branded placeholder for ${label.toLowerCase()}`}}))]));
+export type LeadershipPortrait={displayName:string;title:string;image:ImageAsset};
