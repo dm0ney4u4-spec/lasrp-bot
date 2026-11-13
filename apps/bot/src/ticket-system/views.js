@@ -27,16 +27,22 @@ export function confirmationCard(ticket, id, action, target) {
     const close = action === 'close';
     return privateNotice(close ? 'Close Ticket?' : 'Reassign Ticket?', close ? `Are you sure you want to close ticket **#${ticketNumber(ticket.number)}**? The conversation will be preserved before its channel is deleted.` : `Reassign ticket **#${ticketNumber(ticket.number)}** to <@${target}>?`, [{ id: 'nt:confirm:' + id, label: close ? 'Confirm Close' : 'Confirm Reassignment', style: close ? ButtonStyle.Danger : ButtonStyle.Primary }, { id: 'nt:cancel:' + id, label: 'Cancel' }]);
 }
+export function closeRequestCard(ticket, request) {
+    const container = new ContainerBuilder().setAccentColor(0x279bd3).addTextDisplayComponents(text('## Ticket closure request'), text(`<@${ticket.creatorId}>, <@${request.requesterId}> would like to close ticket **#${ticketNumber(ticket.number)}**.\n\n${request.reason ? '**Reason:** ' + escapeMarkdown(request.reason) + '\n\n' : ''}Has your issue been resolved? Choose **Close Ticket** to approve closure or **Keep Open** if you still need help.\n\nOnly you can answer. This request expires <t:${Math.floor(request.expiresAt / 1000)}:R>; no response leaves your ticket open.`)).addActionRowComponents(new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`nt:requestAccept:${ticket.id}:${request.id}`).setLabel('Close Ticket').setStyle(ButtonStyle.Danger), new ButtonBuilder().setCustomId(`nt:requestDecline:${ticket.id}:${request.id}`).setLabel('Keep Open').setStyle(ButtonStyle.Secondary)));
+    return { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [], users: [ticket.creatorId] } };
+}
 export function closureSummary(ticket, category, parts, { continuation = false } = {}) {
     const c = new ContainerBuilder().setAccentColor(0x279bd3).addTextDisplayComponents(text(`# ${continuation ? 'Transcript continuation' : 'Ticket Closed'} — #${ticketNumber(ticket.number)}`));
     if (!continuation)
-        c.addTextDisplayComponents(text(`**Category:** ${category.name}\n**Opened By:** <@${ticket.creatorId}>\n**Claimed By:** ${ticket.claimantId ? `<@${ticket.claimantId}>` : 'Not Claimed'}\n**Closed By:** <@${ticket.closure.actorId}>\n**Reason:** ${escapeMarkdown(ticket.inquiry)}\n**Created:** ${stamp(ticket.createdAt)}\n**Closed:** ${stamp(ticket.closedAt ?? ticket.closure.startedAt)}`));
+        c.addTextDisplayComponents(text(`**Category:** ${category.name}\n**Opened By:** <@${ticket.creatorId}>\n**Claimed By:** ${ticket.claimantId ? `<@${ticket.claimantId}>` : 'Not Claimed'}\n**Closed By:** <@${ticket.closure.actorId}>\n**Reason:** ${escapeMarkdown(ticket.closure.reason || ticket.inquiry)}${ticket.closure.approvedBy ? '\n**Approved By:** <@' + ticket.closure.approvedBy + '>' : ''}\n**Created:** ${stamp(ticket.createdAt)}\n**Closed:** ${stamp(ticket.closedAt ?? ticket.closure.startedAt)}`));
     for (const part of parts)
         c.addFileComponents(new FileBuilder().setURL('attachment://' + part.name));
     return { components: [c], flags: MessageFlags.IsComponentsV2, files: parts.map(p => ({ attachment: p.path, name: p.name })), allowedMentions: { parse: [] } };
 }
 export function transcriptDm(ticket, category, parts, continuation = false) {
     const c = new ContainerBuilder().setAccentColor(0x279bd3).addTextDisplayComponents(text('## New York City Roleplay — Ticket Transcript'), text(`${continuation ? 'Transcript continuation.' : 'Your support ticket has been closed.\n\nThank you for contacting New York City Roleplay Support. A copy of your ticket transcript is attached for your records.'}\n\n**Ticket Number:** #${ticketNumber(ticket.number)}\n**Category:** ${category.name}\n**Status:** Closed`));
+    if (ticket.closure.reason && !continuation)
+        c.addTextDisplayComponents(text('**Closing Reason:** ' + escapeMarkdown(ticket.closure.reason)));
     for (const part of parts)
         c.addFileComponents(new FileBuilder().setURL('attachment://' + part.name));
     return { components: [c], flags: MessageFlags.IsComponentsV2, files: parts.map(p => ({ attachment: p.path, name: p.name })), allowedMentions: { parse: [] } };

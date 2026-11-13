@@ -1,10 +1,10 @@
 import fs from 'node:fs/promises';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { ChannelType, PermissionFlagsBits, GatewayIntentBits, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, MessageFlags, Routes } from 'discord.js';
 import { ticketConfig } from '../../../../config/tickets.js';
 import { TicketRepository, TicketError } from './database.js';
 import { actorFromMember, authorize, categoryFor, isAdministrator, canManage, nextEscalation, permissionOverwrites } from './permissions.js';
-import { ticketPanel, ticketCard, privateNotice, confirmationCard, closureSummary, transcriptDm, ticketNumber } from './views.js';
+import { ticketPanel, ticketCard, privateNotice, confirmationCard, closureSummary, transcriptDm, ticketNumber, closeRequestCard } from './views.js';
 import { captureTranscript, verifyParts } from './transcripts.js';
 const code = error => String(error?.code ?? error?.name ?? 'UNKNOWN');
 const nonce = value => createHash('sha256').update(value).digest('hex').slice(0, 24);
@@ -322,16 +322,24 @@ export class TicketSystem {
         const id = this.repo.confirmation(ticket.id, actor.id, action, payload, this.config.confirmationSeconds);
         return confirmationCard(ticket, id, action, payload.targetId);
     }
-    async close(id, actor, { retry = false } = {}) {
+    async close(id, actor, { retry = false, reason = '', requestId = null, approvedBy = null, staffCommand = false } = {}) {
         return this.leased(id, 'close', async (token) => {
             let ticket = this.repo.get(id);
-            authorize(ticket, actor, retry ? 'retry' : 'close', this.config);
+            authorize(ticket, actor, retry ? 'retry' : (staffCommand || requestId) ? 'manage' : 'close', this.config);
             if (ticket.lifecycle === 'CLOSED')
                 return ticket;
             if (ticket.lifecycle === 'OPEN') {
                 if (retry)
                     throw new TicketError('Use Close and confirm before closing an open ticket.');
-                ticket = this.repo.update(id, { lifecycle: 'CLOSING', closure: { actorId: actor.id, startedAt: Date.now(), stage: 'capturing' }, panelSyncPending: true }, actor.id, 'close_confirmed', {}, token);
+                if (requestId) {
+                    const request = ticket.closeRequest;
+                    if (!request || request.id !== requestId || request.status !== 'pending' || request.expiresAt < Date.now() || approvedBy !== ticket.creatorId || request.requesterId !== actor.id)
+                        throw new TicketError('This closure request expired or was already answered.');
+                    reason = request.reason;
+                }
+                if (typeof reason !== 'string' || reason.length > 1000)
+                    throw new TicketError('Closing reasons must be no longer than 1,000 characters.');
+                ticket = this.repo.update(id, { lifecycle: 'CLOSING', closure: { actorId: actor.id, startedAt: Date.now(), stage: 'capturing', reason: reason.trim(), approvedBy }, ...(ticket.closeRequest ? { closeRequest: { ...ticket.closeRequest, status: requestId ? 'approved' : 'superseded' } } : {}), panelSyncPending: true }, actor.id, 'close_confirmed', { reason: reason.trim(), approvedBy }, token);
             }
             else if (ticket.lifecycle !== 'CLOSING' || !ticket.closure)
                 throw new TicketError('There is no interrupted closure to retry.');
@@ -344,6 +352,105 @@ export class TicketSystem {
                 throw new TicketError('Closure could not finish safely. The ticket and saved transcript were preserved; an administrator can use /ticket-admin retry-close.', 'CLOSE_PRESERVED');
             }
         });
+    }
+    async requestClose(id, actor, reason = '') {
+        return this.leased(id, 'request-close', async (token) => {
+            const ticket = this.repo.get(id);
+            authorize(ticket, actor, 'manage', this.config);
+            this.assertOpen(ticket);
+            if (reason.length > 1000)
+                throw new TicketError('Closing reasons must be no longer than 1,000 characters.');
+            if (ticket.closeRequest?.status === 'pending' && ticket.closeRequest.expiresAt > Date.now())
+                throw new TicketError('A closure request is already waiting for the ticket creator.');
+            const request = { id: randomUUID(), requesterId: actor.id, reason: reason.trim(), status: 'pending', createdAt: Date.now(), expiresAt: Date.now() + (this.config.closeRequestSeconds ?? 86400) * 1000, messageId: null };
+            this.repo.update(id, { closeRequest: request }, actor.id, 'closure_requested', { reason: request.reason }, token);
+            const channel = await this.channel(ticket);
+            await this.syncCloseRequest(this.repo.get(id), channel, token);
+            return this.repo.get(id);
+        });
+    }
+    async syncCloseRequest(ticket, channel, token) {
+        const request = ticket.closeRequest;
+        if (!request || request.status !== 'pending' || request.messageId || request.expiresAt < Date.now())
+            return;
+        const customId = `nt:requestAccept:${ticket.id}:${request.id}`;
+        const found = await this.findMessage(channel, customId, request.createdAt - 60000);
+        const sent = found ?? await channel.send({ ...closeRequestCard(ticket, request), nonce: nonce('close-request:' + request.id), enforceNonce: true });
+        this.repo.update(ticket.id, { closeRequest: { ...request, messageId: sent.id } }, this.client.user.id, null, {}, token);
+    }
+    async answerCloseRequest(id, requestId, actor, accept) {
+        const ticket = this.repo.get(id), request = ticket?.closeRequest;
+        if (!ticket || actor.id !== ticket.creatorId)
+            throw new TicketError('Only the ticket creator can answer this closure request.', 'TICKET_FORBIDDEN');
+        if (!request || request.id !== requestId || request.status !== 'pending' || request.expiresAt < Date.now())
+            throw new TicketError('This closure request expired or was already answered.');
+        if (accept) {
+            const requester = await this.actor(request.requesterId);
+            return this.close(id, requester, { requestId, approvedBy: actor.id });
+        }
+        return this.leased(id, 'decline-close', async (token) => {
+            const current = this.repo.get(id);
+            this.assertOpen(current);
+            if (current.closeRequest?.id !== requestId || current.closeRequest.status !== 'pending')
+                throw new TicketError('This closure request was already answered.');
+            const updated = this.repo.update(id, { closeRequest: { ...current.closeRequest, status: 'declined', answeredAt: Date.now() } }, actor.id, 'closure_declined', {}, token);
+            const channel = await this.channel(updated);
+            try {
+                if (request.messageId) {
+                    const { flags, ...payload } = privateNotice('Ticket remains open', 'The ticket creator declined the closure request.');
+                    await (await channel.messages.fetch(request.messageId)).edit(payload);
+                }
+            }
+            catch (error) {
+                this.log('close_request_refresh_failed', error, ticket);
+            }
+            return updated;
+        });
+    }
+    async message(message) {
+        if (message.author?.bot || message.webhookId || message.guildId !== this.config.guildId)
+            return false;
+        const match = /^-(close|closer)(?:\s+([\s\S]*))?$/i.exec(message.content ?? '');
+        if (!match)
+            return false;
+        const task = (async () => {
+            try {
+                const ticket = this.repo.byChannel(message.channelId);
+                if (!ticket)
+                    throw new TicketError('Use this command inside an active support ticket.');
+                const actor = await this.actor(message.author.id);
+                authorize(ticket, actor, 'manage', this.config);
+                this.assertOpen(ticket);
+                const reason = (match[2] ?? '').trim();
+                if (reason.length > 1000)
+                    throw new TicketError('Closing reasons must be no longer than 1,000 characters.');
+                if (match[1].toLowerCase() === 'close') {
+                    if (!reason)
+                        throw new TicketError('Usage: -close [reason]. A closing reason is required.');
+                    await this.close(ticket.id, actor, { reason, staffCommand: true });
+                }
+                else
+                    await this.requestClose(ticket.id, actor, reason);
+            }
+            catch (error) {
+                this.log('prefix_command_failed', error);
+                const { flags, ...payload } = privateNotice('Ticket needs attention', error instanceof TicketError ? error.message : 'The action could not finish safely. Ticket data was preserved; contact an administrator.');
+                try {
+                    await message.reply({ ...payload, flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [], repliedUser: false } });
+                }
+                catch (replyError) {
+                    this.log('prefix_reply_failed', replyError);
+                }
+            }
+        })();
+        this.running.add(task);
+        try {
+            await task;
+        }
+        finally {
+            this.running.delete(task);
+        }
+        return true;
     }
     async logChannel() {
         const guild = await this.guild(), channel = await guild.channels.fetch(this.config.transcriptChannelId);
@@ -489,6 +596,7 @@ export class TicketSystem {
                         if (!current.openingPingId || !current.panelMessageId)
                             await this.finishOpening(current, channel, token);
                         await this.sendPending(this.repo.get(current.id), channel, token);
+                        await this.syncCloseRequest(this.repo.get(current.id), channel, token);
                         if (current.panelSyncPending || current.nameSyncPending)
                             await this.refresh(this.repo.get(current.id), channel, token);
                     });
@@ -588,6 +696,13 @@ export class TicketSystem {
                 }
             }
             const [, action, id, level] = custom.split(':');
+            if (['requestAccept', 'requestDecline'].includes(action)) {
+                const ticket = this.repo.get(id);
+                if (!ticket || ticket.channelId !== i.channelId)
+                    throw new TicketError('This closure request does not belong to this channel.');
+                await this.answerCloseRequest(id, level, actor, action === 'requestAccept');
+                return await this.respond(i, privateNotice(action === 'requestAccept' ? 'Ticket closed' : 'Ticket remains open', action === 'requestAccept' ? 'The transcript was preserved before closure.' : 'Staff have been informed that you still need assistance.'));
+            }
             if (['confirm', 'cancel'].includes(action)) {
                 const confirmation = this.repo.peekConfirmation(id, actor.id), ticket = this.repo.get(confirmation.ticket_id);
                 authorize(ticket, actor, confirmation.action, this.config);

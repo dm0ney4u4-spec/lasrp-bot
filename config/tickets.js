@@ -12,7 +12,7 @@ export const ticketConfig = {
     assistanceBanner: path.join(branding, 'nyc-assistance.png'), footerBanner: path.join(branding, 'nyc-footer.png'),
     startingNumber: 1, minInquiryLength: 10, maxInquiryLength: 1000,
     creatorCanClose: true, allowDiscordAdministrators: true, administratorRoleIds: [], supervisorRoleIds: [],
-    confirmationSeconds: 120, operationLeaseMs: 180000, recoveryIntervalMs: 30000,
+    confirmationSeconds: 120, closeRequestSeconds: 86400, operationLeaseMs: 180000, recoveryIntervalMs: 30000,
     creationRecoveryGraceMs: 120000, transcriptPartBytes: 7 * 1024 * 1024, renameTimeoutMs: 10000,
     categories: [
         { key: 'general', name: 'General Support', categoryId: '1530304754045943808', emojiId: '1530309174506950727', supportRoleId: '1529544817712037939', viewerRoleIds: ['1529545769462272140', '1529545703024627754'], description: 'General questions and assistance', summary: 'Questions, basic assistance, and general server concerns.', escalateTo: 'high_rank' },

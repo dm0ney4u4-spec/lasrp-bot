@@ -360,3 +360,170 @@ test('persistent button routing acknowledges before member lookups and opens mod
         await f.cleanup();
     }
 });
+function prefixMessage(f: any, ticket: any, userId: string, content: string) {
+    return { guildId: f.config.guildId, channelId: ticket.channelId, content, author: { id: userId, bot: false }, reply: async (payload: any) => {
+            f.effects.push({ kind: 'commandReply', payload });
+        } };
+}
+test('prefix close requires a reason and ticket management permission; viewer and creator cannot invoke staff commands', async () => {
+    const f = await fixture();
+    try {
+        const ticket = await f.create();
+        for (const user of ['member', 'viewer'])
+            for (const command of ['-close Resolved', '-closer Can we close?']) {
+                await f.service.message(prefixMessage(f, ticket, user, command));
+                assert.equal(f.repo.get(ticket.id)?.lifecycle, 'OPEN');
+                assert.equal(f.repo.get(ticket.id)?.closeRequest, undefined);
+            }
+        assert.ok(f.effects.filter(e => e.kind === 'commandReply').every(e => JSON.stringify(e.payload).includes('permission')));
+        await f.service.message(prefixMessage(f, ticket, 'staff', '-close'));
+        assert.equal(f.repo.get(ticket.id)?.lifecycle, 'OPEN');
+        assert.ok(JSON.stringify(f.effects.at(-1).payload).includes('reason is required'));
+        await f.service.message(prefixMessage(f, ticket, 'staff', '-close ' + 'x'.repeat(1001)));
+        assert.equal(f.repo.get(ticket.id)?.lifecycle, 'OPEN');
+        assert.equal(await f.service.message({ ...prefixMessage(f, ticket, 'staff', '-close Done'), guildId: 'other' }), false);
+        assert.equal(await f.service.message({ ...prefixMessage(f, ticket, 'staff', '-close Done'), author: { id: 'staff', bot: true } }), false);
+        assert.equal(await f.service.message(prefixMessage(f, ticket, 'staff', '-closeother')), false);
+    }
+    finally {
+        await f.cleanup();
+    }
+});
+test('prefix close immediately uses safe transcript delivery and stores the exact supplied closing reason', async () => {
+    const f = await fixture();
+    try {
+        const ticket = await f.create();
+        await f.service.message(prefixMessage(f, ticket, 'staff', '-close Issue resolved @everyone'));
+        const final = f.repo.get(ticket.id)!;
+        assert.equal(final.lifecycle, 'CLOSED');
+        assert.equal(final.closure.reason, 'Issue resolved @everyone');
+        assert.equal(final.closure.actorId, 'staff');
+        assert.equal(f.effects.filter(e => e.kind === 'log').length, 1);
+        assert.ok(JSON.stringify(f.effects.find(e => e.kind === 'log').payload).includes('Issue resolved'));
+        assert.deepEqual(f.effects.find(e => e.kind === 'log').payload.allowedMentions.parse, []);
+        const html = await fs.readFile(final.transcript.parts[0].path, 'utf8');
+        assert.ok(html.includes('Issue resolved @everyone'));
+        assert.ok(html.includes(ticket.inquiry));
+    }
+    finally {
+        await f.cleanup();
+    }
+});
+test('closer sends a persistent V2 creator-only ping, blocks duplicates and permits only the creator to answer', async () => {
+    const f = await fixture();
+    try {
+        const ticket = await f.create();
+        await f.service.message(prefixMessage(f, ticket, 'staff', '-closer Are you all set? @everyone'));
+        let updated = f.repo.get(ticket.id)!;
+        const request = updated.closeRequest;
+        assert.equal(request.reason, 'Are you all set? @everyone');
+        assert.equal(updated.lifecycle, 'OPEN');
+        const sent = f.effects.find(e => e.message?.id === request.messageId);
+        assert.ok(Number(sent.payload.flags) & MessageFlags.IsComponentsV2);
+        assert.deepEqual(sent.payload.allowedMentions, { parse: [], users: ['member'] });
+        assert.ok(JSON.stringify(sent.payload).includes('Keep Open'));
+        await assert.rejects(() => f.service.requestClose(ticket.id, staff, 'Duplicate'));
+        await assert.rejects(() => f.service.answerCloseRequest(ticket.id, request.id, otherStaff, true));
+        assert.equal(f.repo.get(ticket.id)?.lifecycle, 'OPEN');
+        await f.service.answerCloseRequest(ticket.id, request.id, creator, false);
+        updated = f.repo.get(ticket.id)!;
+        assert.equal(updated.closeRequest.status, 'declined');
+        assert.equal(updated.lifecycle, 'OPEN');
+        await assert.rejects(() => f.service.answerCloseRequest(ticket.id, request.id, creator, true));
+        await f.service.message(prefixMessage(f, ticket, 'staff', '-closer'));
+        assert.equal(f.repo.get(ticket.id)?.closeRequest.reason, '');
+    }
+    finally {
+        await f.cleanup();
+    }
+});
+test('creator approval closes under requesting staff identity and records creator approval once', async () => {
+    const f = await fixture();
+    try {
+        const ticket = await f.create();
+        await f.service.requestClose(ticket.id, staff, 'Support completed');
+        const request = f.repo.get(ticket.id)?.closeRequest;
+        const results = await Promise.allSettled([f.service.answerCloseRequest(ticket.id, request.id, creator, true), f.service.answerCloseRequest(ticket.id, request.id, creator, true)]);
+        assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);
+        const final = f.repo.get(ticket.id)!;
+        assert.equal(final.lifecycle, 'CLOSED');
+        assert.equal(final.closeRequest.status, 'approved');
+        assert.equal(final.closure.actorId, 'staff');
+        assert.equal(final.closure.approvedBy, 'member');
+        assert.equal(final.closure.reason, 'Support completed');
+        assert.equal(f.effects.filter(e => e.kind === 'log').length, 1);
+    }
+    finally {
+        await f.cleanup();
+    }
+});
+test('expired requests and removed requester permissions leave tickets open; recovery resends no successful request', async () => {
+    const f = await fixture();
+    try {
+        const ticket = await f.create();
+        await f.service.requestClose(ticket.id, staff);
+        let request = f.repo.get(ticket.id)?.closeRequest;
+        f.users.set('staff', { ...staff, roles: [] });
+        await assert.rejects(() => f.service.answerCloseRequest(ticket.id, request.id, creator, true));
+        assert.equal(f.repo.get(ticket.id)?.lifecycle, 'OPEN');
+        f.users.set('staff', staff);
+        f.repo.update(ticket.id, { closeRequest: { ...request, expiresAt: Date.now() - 1000 } }, 'owner', 'test_expired');
+        await assert.rejects(() => f.service.answerCloseRequest(ticket.id, request.id, creator, true));
+        assert.equal(f.repo.get(ticket.id)?.lifecycle, 'OPEN');
+        await f.service.requestClose(ticket.id, staff, 'New request');
+        request = f.repo.get(ticket.id)?.closeRequest;
+        const before = f.effects.filter(e => e.kind === 'send').length;
+        await f.service.recover();
+        assert.equal(f.effects.filter(e => e.kind === 'send').length, before);
+        // Crash window: request sent but its message receipt was not saved. Recover by its persistent button ID.
+        f.repo.update(ticket.id, { closeRequest: { ...request, messageId: null } }, 'owner', 'test_receipt_lost');
+        await f.service.recover();
+        assert.equal(f.effects.filter(e => e.kind === 'send').length, before);
+        assert.equal(f.repo.get(ticket.id)?.closeRequest.messageId, request.messageId);
+    }
+    finally {
+        await f.cleanup();
+    }
+});
+test('prefix commands preserve the channel when logging fails and reject non-ticket channels', async () => {
+    const f = await fixture();
+    try {
+        const ticket = await f.create();
+        f.setFailLog(true);
+        await f.service.message(prefixMessage(f, ticket, 'staff', '-close Resolved safely'));
+        assert.ok(f.channels.has(ticket.channelId));
+        assert.equal(f.repo.get(ticket.id)?.lifecycle, 'CLOSING');
+        assert.equal(f.repo.get(ticket.id)?.closure.reason, 'Resolved safely');
+        await f.service.message(prefixMessage(f, { channelId: f.config.panelChannelId }, 'staff', '-closer'));
+        assert.ok(JSON.stringify(f.effects.at(-1).payload).includes('active support ticket'));
+    }
+    finally {
+        await f.cleanup();
+    }
+});
+test('request response buttons enforce the ticket channel and creator identity through persistent interaction routing', async () => {
+    const f = await fixture();
+    try {
+        const ticket = await f.create();
+        await f.service.requestClose(ticket.id, staff, 'Completed');
+        const request = f.repo.get(ticket.id)?.closeRequest;
+        let response: any;
+        const interaction: any = { guildId: f.config.guildId, channelId: ticket.channelId, user: { id: 'viewer' }, customId: `nt:requestDecline:${ticket.id}:${request.id}`, deferred: true, deferReply: async () => {
+            }, editReply: async (payload: any) => {
+                response = payload;
+            }, isChatInputCommand: () => false };
+        await f.service.interaction(interaction);
+        assert.ok(JSON.stringify(response).includes('Only the ticket creator'));
+        assert.equal(f.repo.get(ticket.id)?.closeRequest.status, 'pending');
+        await f.service.interaction({ ...interaction, user: { id: 'member' }, channelId: 'other' });
+        assert.ok(JSON.stringify(response).includes('does not belong'));
+        assert.equal(f.repo.get(ticket.id)?.closeRequest.status, 'pending');
+        await f.service.interaction({ ...interaction, user: { id: 'member' } });
+        assert.equal(f.repo.get(ticket.id)?.closeRequest.status, 'declined');
+        assert.ok(JSON.stringify(response).includes('Ticket remains open'));
+        assert.equal(f.repo.get(ticket.id)?.lifecycle, 'OPEN');
+    }
+    finally {
+        await f.cleanup();
+    }
+});

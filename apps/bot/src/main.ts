@@ -48,6 +48,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
  const tickets=new Tickets(client,service);
  const ticketSystem=new TicketSystem(client);service.ticketSystem=ticketSystem;
  client.on(Events.ClientReady,()=>{if(client.isReady())ticketSystem.start();});
+ client.on(Events.MessageCreate,message=>{void ticketSystem.message(message).catch(error=>ticketSystem.log('message_handler_failed',error));});
  const liveries=new LiveryManager(new LiveryService(new PostgresLiveryRepository(db)));
  protect(service);
  seeds.departments=departmentTemplate();seeds.community_rules=regulationsTemplate();
