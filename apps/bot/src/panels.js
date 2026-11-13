@@ -54,10 +54,13 @@ export function validatePayload(payload) {
   let count = 0, length = 0;
   const ids = new Set();
   function walk(c) {
+    c=c.toJSON?.()??c;
     count++;
     if (c.type === 10) length += c.content.length;
     if (c.custom_id) {
-      if (ids.has(c.custom_id) || c.custom_id.length > 100 || !actions.has(c.custom_id.split(':')[1])) throw Error('Invalid or duplicate interaction');
+      const [namespace,action]=c.custom_id.split(':');
+      const valid=namespace==='nt'?['select','claim','unclaim','close','escalate','confirm','cancel'].includes(action):namespace==='ls'&&actions.has(action);
+      if (ids.has(c.custom_id) || c.custom_id.length > 100 || !valid) throw Error('Invalid or duplicate interaction');
       ids.add(c.custom_id);
     }
     if (c.components) c.components.forEach(walk);

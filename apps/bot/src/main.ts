@@ -15,6 +15,8 @@ import { commands as baseCommands,command as baseCommand } from './commands.js';
 import { CommunityService } from './service.js';
 import { Applications } from './applications.js';
 import { Tickets } from './tickets.js';
+import {TicketSystem} from './ticket-system/service.js';
+import {ticketCommands} from './ticket-system/commands.js';
 import { Sessions,sessionCommands } from './sessions.js';
 import { staffCommand,staffAction } from './staff.js';
 import { render,notice,button } from './panels.js';
@@ -38,12 +40,14 @@ export const extraCommands=[
  command('help','Show available NYCRP commands'),command('cad','Server owner: deploy CAD information').addSubcommand(c=>c.setName('panel').setDescription('Deploy or refresh the CAD panel in its configured channel')),
  command('erlc','Read live ER:LC information').addSubcommand(c=>c.setName('status').setDescription('Server health and population')).addSubcommand(c=>c.setName('players').setDescription('Live player list')).addSubcommand(c=>c.setName('queue').setDescription('Queue size')).addSubcommand(c=>c.setName('message').setDescription('Send an approved in-game announcement').addStringOption(o=>o.setName('text').setDescription('Announcement').setRequired(true).setMaxLength(160))),
 ];
-export const allCommands=[...baseCommands.filter(c=>!['setup','panel','cad','security','session','staff'].includes(c.name)),...extraCommands.filter(c=>c.name!=='panic'),...sessionCommands,staffCommand,liveryCommand];
+export const allCommands=[...baseCommands.filter(c=>!['setup','panel','cad','security','session','staff'].includes(c.name)),...extraCommands.filter(c=>c.name!=='panic'),...sessionCommands,staffCommand,liveryCommand,...ticketCommands];
 export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
  const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMembers,GatewayIntentBits.GuildModeration,GatewayIntentBits.DirectMessages,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent]});
  client.on(Events.ClientReady,ready=>ready.user.setPresence({status:'online',activities:[{name:'Custom Status',type:ActivityType.Custom,state:'New York City Roleplay'}]}));
  const service=new CommunityService(client,store),applications=new Applications(client,service);
  const tickets=new Tickets(client,service);
+ const ticketSystem=new TicketSystem(client);service.ticketSystem=ticketSystem;
+ client.on(Events.ClientReady,()=>{if(client.isReady())ticketSystem.start();});
  const liveries=new LiveryManager(new LiveryService(new PostgresLiveryRepository(db)));
  protect(service);
  seeds.departments=departmentTemplate();seeds.community_rules=regulationsTemplate();
@@ -62,6 +66,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
    // Livery owns its early acknowledgement/modal routing and exact identity guard.
    // Run before generic handlers, role lookups, or database access for unrelated features.
    if(await liveries.interaction(i))return;
+   if(await ticketSystem.interaction(i))return;
    i=await acknowledgeInteraction(i);
    if(await regulationsInteraction(i))return;
    if(await departmentInteraction(i))return;
@@ -133,7 +138,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
  });
  client.on(Events.GuildMemberAdd,async member=>{if(member.guild.id!==ids.guildId)return;const g=store.guild(ids.guildId);if(!g.config.welcomeChannel)return;try{const channel=await member.guild.channels.fetch(g.config.welcomeChannel);if(channel?.isTextBased()&&'send'in channel)await channel.send(service.panel(g,'welcome',member));}catch{console.error('Welcome delivery failed.');}});
  client.on(Events.Error,()=>console.error('Discord connection reported an error.'));
- return {client,service,applications,bootstrap:async()=>{await bootstrapCommunity(service);try{await applications.compactExistingReviews();}catch{console.error('Existing application review compaction needs attention.');}}};
+ return {client,service,applications,ticketSystem,bootstrap:async()=>{await bootstrapCommunity(service);try{await applications.compactExistingReviews();}catch{console.error('Existing application review compaction needs attention.');}}};
 }
 async function deploy(i:ChatInputCommandInteraction,service:CommunityService,key:string){
  await i.deferReply({flags:64});if(key==='cad'&&i.user.id!==i.guild!.ownerId)throw Error('Only the server owner can deploy the CAD panel');const channelId=key==='cad'?ids.channels.cadPanel:key==='applications'?ids.channels.applicationsPanel:key==='departments'?ids.channels.departments:key==='community_rules'?ids.channels.rules:i.channelId;const g=service.store.guild(i.guildId!),old=Object.values(g.published).find((p:any)=>p.key===key&&p.channel===channelId) as {id:string}|undefined;const publication=await service.publish(i.guildId!,channelId,key,i.user.id,{},old?.id);await editReply(i,notice('Panel ready',`**${key}** published as message ${publication.message}. Repeating this command updates the existing panel.`));

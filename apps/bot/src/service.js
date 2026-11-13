@@ -5,11 +5,12 @@ import { seeds, ticketCategories, departments } from './seeds.js';
 import { render, notice, button, validateTemplate } from './panels.js';
 import { access, requireAccess, canViewCase } from './access.js';
 import { editReply } from './replies.js';
+import {ticketPanel} from './ticket-system/views.js';
 
 export const id = () => randomUUID().slice(0, 8);
 const stamp = time => `<t:${Math.floor(time / 1000)}:f>`;
 export class CommunityService {
-  constructor(client, store) { this.client = client; this.store = store; }
+  constructor(client, store) { this.client = client; this.store = store; this.ticketSystem = null; }
   template(g, key) { const t = g.templates[key] ?? seeds[key]; if (!t) throw Error('Unknown template'); return t; }
   variables(g, member) {
     const c = g.config, s = g.sessions.at(-1), uid = member?.id;
@@ -19,6 +20,7 @@ export class CommunityService {
     return { community: c.community, server_name: c.serverName ?? c.community, join_code: c.joinCode, max_players: g.live?.maxPlayers ?? c.maxPlayers, current_players: g.live?.players?.length ?? 0, session_status: s && !s.end ? (g.live?.healthy ? 'ONLINE' : 'AWAITING LIVE SYNC') : 'OFFLINE', host: s ? `<@${s.host}>` : 'No active host', started: s ? stamp(s.start) : 'No session', ended: s?.end ? stamp(s.end) : 'Not ended', duration: s ? `${Math.floor(((s.end ?? Date.now()) - s.start) / 60000)} minutes` : 'No session', peak_players: s?.peak ?? 0, participants: s?.participants?.length ?? 0, reason: s?.reason ?? 'Not supplied', priority: c.priority, last_sync: g.live?.synced ? stamp(g.live.synced) : 'Not synchronized', member: uid ? `<@${uid}>` : 'Member', member_id: uid, member_count: member?.guild?.memberCount ?? 0, timestamp: stamp(Date.now()), weekly_minutes: c.weeklyMinutes, requirements: c.requirements, training: profile.training ?? 'Awaiting assessment', supervisor: profile.supervisor ?? 'Not assigned', discipline: profile.discipline ?? 'No recorded disciplinary status', rank: member?.roles?.highest?.name ?? 'Member', shift_status: Object.values(g.shifts).some(x => x.user === uid && !x.end) ? 'On duty' : 'Off duty', shift_minutes: minutes(shifts.filter(x => x.user === uid)), leaderboard: [...new Set(shifts.map(x => x.user))].map(user => ({ user, minutes: minutes(shifts.filter(x => x.user === user)) })).sort((a,b) => b.minutes-a.minutes).slice(0,15).map((x,i) => `${i+1}. <@${x.user}> — ${x.minutes} minutes`).join('\n') || 'No shifts recorded this week.', online_staff: Object.values(g.shifts).filter(x => !x.end).map(x => `<@${x.user}> — on duty`).join('\n') || 'No staff currently clocked in.', player_list: (g.live?.players ?? []).slice(0,25).map(p => p.Player ?? p.name ?? 'Unknown player').join('\n') || 'No live player data available.', application_list: departments.map((name, i) => `### ${name}\n**Status:** ${c.applications[i]?.open ? 'Open' : 'Closed'}\n**Requirements:** ${c.applications[i]?.requirements ?? 'Awaiting department configuration'}${c.applications[i]?.reviewPeriod ? `\n**Estimated review:** ${c.applications[i].reviewPeriod}` : ''}`).join('\n\n'), upcoming_sessions: Object.values(g.schedules).filter(x => !x.sent && x.key === 'ssu').map(x => stamp(x.at)).join('\n') || 'No upcoming sessions have been scheduled.' };
   }
   panel(g, key, member, vars = {}, page = 0, ephemeral = false) {
+    if(key==='support'&&this.ticketSystem)return ticketPanel(this.ticketSystem.config,{ephemeral});
     if(key==='applications'&&member?.guild)return notice('Staff applications',`Start your application in <#${ids.channels.applicationsPanel}>.`, 'blue',ephemeral);
     const template = this.template(g, key);
     if (['case', 'ticket'].includes(template.audience)) throw Error('Open this private panel from its case or ticket.');
@@ -35,6 +37,7 @@ export class CommunityService {
     return render(t, { ...this.variables(g, member), ...vars }, { page, ephemeral });
   }
   async publish(guildId, channelId, key, actor, vars = {}, publishedId) {
+    if(key==='support'&&this.ticketSystem){const message=await this.ticketSystem.publish(channelId,await this.ticketSystem.actor(actor));return {id:message.id,key,channel:channelId,message:message.id,vars};}
     const g = this.store.guild(guildId), guild = await this.client.guilds.fetch(guildId);
     if(key==='cad'){if(actor!==guild.ownerId)throw Error('Only the server owner may deploy CAD');channelId=ids.channels.cadPanel;}
     if(key==='applications')channelId=ids.channels.applicationsPanel;
