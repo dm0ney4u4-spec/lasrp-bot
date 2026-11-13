@@ -43,8 +43,8 @@ export const extraCommands=[
 ];
 export const allCommands=[...baseCommands.filter(c=>!['setup','panel','cad','security','session','staff'].includes(c.name)),...extraCommands.filter(c=>c.name!=='panic'),...sessionCommands,staffCommand,liveryCommand,...ticketCommands];
 export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
- const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMembers,GatewayIntentBits.GuildModeration,GatewayIntentBits.DirectMessages,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent]});
- client.on(Events.ClientReady,ready=>ready.user.setPresence({status:'online',activities:[{name:'Custom Status',type:ActivityType.Custom,state:'New York City Roleplay'}]}));
+ // Set presence during gateway identification; a separate Ready broadcast can race a reconnect.
+ const client=new Client({presence:{status:'online',activities:[{name:'Custom Status',type:ActivityType.Custom,state:'New York City Roleplay'}]},intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMembers,GatewayIntentBits.GuildModeration,GatewayIntentBits.DirectMessages,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent]});
  const service=new CommunityService(client,store),applications=new Applications(client,service);
  const tickets=new Tickets(client,service);
  const ticketSystem=new TicketSystem(client);service.ticketSystem=ticketSystem;

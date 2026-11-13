@@ -91,8 +91,9 @@ async function connectDiscord(){
   if(!client.isReady())await client.login(process.env.DISCORD_BOT_TOKEN);
   if(shuttingDown)return;
   if(ids.guildId&&process.env.DISCORD_SYNC_ON_START!=='false'){await(await client.guilds.fetch(ids.guildId)).commands.set(allCommands.map(c=>c.toJSON()));await bootstrap();}
- }catch{
-  console.error('Discord connection or registration failed. CAD remains online; retrying in 30 seconds.');
+ }catch(error){
+  const detail=error as {name?:string;code?:string|number;status?:number;cause?:{code?:string}};
+  console.error('Discord connection or registration failed. CAD remains online; retrying in 30 seconds.',JSON.stringify({name:detail.name,code:detail.code,status:detail.status,causeCode:detail.cause?.code}));
   if(!shuttingDown)setTimeout(()=>{if(!shuttingDown)void connectDiscord();},30000).unref();
  }
 }
