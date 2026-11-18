@@ -1,4 +1,4 @@
-﻿# Startup recovery and durable local PostgreSQL
+# Startup recovery and durable local PostgreSQL
 
 The startup failure was reproduced: the embedded local database had an invalid WAL checkpoint after an interrupted shutdown. The original data/local-postgres-20261019 directory was preserved. Recovery was performed only on data/recovery-backups/current-recovery-work using PostgreSQL's recovery tool, then the readable records were exported and restored into a freshly initialized database.
 
@@ -8,7 +8,7 @@ Recovery verified 28 public tables and 33 rows immediately after restore, includ
 
 ## Run on Windows
 
-Open PowerShell in the Los Angeles Bot project directory and run:
+Open PowerShell in the nyc main bot project directory and run:
 
 ```
 npm start

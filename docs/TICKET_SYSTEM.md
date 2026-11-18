@@ -1,4 +1,4 @@
-# New York Automation — ticket system
+# nyc main bot — ticket system
 
 This module runs inside the existing Discord bot. It adds no second bot, web login, or PostgreSQL replacement. The CAD, staff applications and ER tracking keep their existing database and permissions. New tickets use a separate SQLite WAL database; existing legacy ticket records and controls remain available. Old ticket creation menus direct members to the new three-category panel.
 

@@ -7,6 +7,7 @@ import express from 'express';
 import helmet from 'helmet';
 import {configureCadSockets} from './cad-sockets.js';
 import { ids } from '../../../config/ids.js';
+import {projectName} from '../../../config/project.js';
 import { assetDirectory } from '../../../config/assets.js';
 import { db,events,audit,changed } from '../../../packages/shared/src/database.js';
 import { DatabaseStore } from '../../../packages/shared/src/store.js';
@@ -37,7 +38,7 @@ app.use(helmet({contentSecurityPolicy:{directives:{defaultSrc:["'self'"],scriptS
 app.use(express.json({limit:'96kb'}));
 const rate=new Map<string,{at:number;count:number}>();
 app.use((req,res,next)=>{const key=req.ip??'unknown',bucket=rate.get(key)??{at:Date.now(),count:0};if(Date.now()-bucket.at>60000){bucket.at=Date.now();bucket.count=0;}bucket.count++;rate.set(key,bucket);if(bucket.count>180)return res.status(429).json({error:'Too many requests. Try again shortly.'});res.set('Cache-Control','no-store');next();});
-app.get('/health',async(req,res)=>{try{await db.$queryRaw`SELECT 1`;res.json({service:'NYCRP Operations',database:'connected',discord:client.isReady()?'connected':'offline'});}catch{res.status(503).json({service:'NYCRP Operations',database:'unavailable'});}});
+app.get('/health',async(req,res)=>{try{await db.$queryRaw`SELECT 1`;res.json({service:projectName,database:'connected',discord:client.isReady()?'connected':'offline'});}catch{res.status(503).json({service:projectName,database:'unavailable'});}});
 app.use('/assets/branding',express.static(assetDirectory));
 // Local owner-only editor retains its own token and Discord management check.
 app.use('/admin',dashboard(service,{...process.env,DISCORD_GUILD_ID:ids.guildId,DISCORD_ADMIN_ID:ids.owners[0]}));

@@ -11,6 +11,7 @@ import { signalPanic } from '../../api/src/panic.js';
 import { syncAutomod } from './automod.js';
 import { Client,GatewayIntentBits,Events,ActivityType,SlashCommandBuilder,PermissionFlagsBits,ActionRowBuilder,ChannelSelectMenuBuilder,RoleSelectMenuBuilder,ContainerBuilder,type Interaction,type ChatInputCommandInteraction } from 'discord.js';
 import { ids } from '../../../config/ids.js';
+import {projectName} from '../../../config/project.js';
 import { commands as baseCommands,command as baseCommand } from './commands.js';
 import { CommunityService } from './service.js';
 import { Applications } from './applications.js';
@@ -112,7 +113,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
      else container.addActionRowComponents(new ActionRowBuilder<ChannelSelectMenuBuilder>().addComponents(new ChannelSelectMenuBuilder().setCustomId(`ls:setupBind:${setting}`)));
      await i.reply({...payload,components:[container]});return;
     }
-    if(i.commandName==='help'){const p=await principal(i.user.id);await i.reply(notice('NYCRP Operations | Help',`**Members:** Applications: <#${ids.channels.applicationsPanel}>. CAD: <#${ids.channels.cadPanel}>. /applications status\n${allowed(p,'host','moderator')?'**Operations:** /ssu, /ssd, /session vote, /session boost, /moderate\n':''}${allowed(p,'management')?'**Management:** /setup, /panel deploy, /staff, /case, /security, /applications open or close\n':''}**CAD:** ${process.env.WEB_BASE_URL??'http://localhost:3000'}\nOnly registered commands are available.`));return;}
+    if(i.commandName==='help'){const p=await principal(i.user.id);await i.reply(notice(projectName+' | Help',`**Members:** Applications: <#${ids.channels.applicationsPanel}>. CAD: <#${ids.channels.cadPanel}>. /applications status\n${allowed(p,'host','moderator')?'**Operations:** /ssu, /ssd, /session vote, /session boost, /moderate\n':''}${allowed(p,'management')?'**Management:** /setup, /panel deploy, /staff, /case, /security, /applications open or close\n':''}**CAD:** ${process.env.WEB_BASE_URL??'http://localhost:3000'}\nOnly registered commands are available.`));return;}
     if(i.commandName==='cad'){if(i.user.id!==i.guild!.ownerId)throw Error('Only the server owner can deploy the CAD panel');await deploy(i,service,'cad');return;}
     if(i.commandName==='erlc'){
      const p=await principal(i.user.id);if(!allowed(p,'moderator','host','dispatcher'))throw Error('Operational access required');await i.deferReply({flags:64});const action=i.options.getSubcommand();
