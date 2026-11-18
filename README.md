@@ -1,6 +1,6 @@
-# nyc main bot
+# NYCRP Operations · NYCRP CAD
 
-The **nyc main bot ticket system** setup, exact IDs, commands, permissions, transcripts and recovery instructions are in [docs/TICKET_SYSTEM.md](docs/TICKET_SYSTEM.md).
+The **New York Automation ticket system** setup, exact IDs, commands, permissions, transcripts and recovery instructions are in [docs/TICKET_SYSTEM.md](docs/TICKET_SYSTEM.md).
 
 The role-restricted **`-gb @user reason`** command and its five-server setup are documented in [docs/GLOBAL_BANS.md](docs/GLOBAL_BANS.md).
 
@@ -13,7 +13,7 @@ A runnable TypeScript bot/API and browser CAD for **New York City Roleplay**. Di
 Install Node.js **22.12 or newer**, npm, and either Docker Desktop or PostgreSQL 16. A project-local Node 22 runtime is also included as a development dependency. Commands below use PowerShell in this project directory:
 
 ```powershell
-cd "C:\Users\erlcl\Downloads\nyc main bot"
+cd "C:\Users\erlcl\Downloads\Los Angeles Bot"
 npm ci
 npm run setup:env
 npm run db:generate

@@ -1,7 +1,7 @@
 # Actual project structure
 
 ```text
-nyc main bot/
+Los Angeles Bot/
   config/
     ids.ts                 # nonsecret IDs, permissions, policies, emoji IDs
     assets.ts              # supplied image mapping

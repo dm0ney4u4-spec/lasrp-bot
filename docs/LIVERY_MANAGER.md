@@ -22,7 +22,7 @@ The additive, idempotent SQL lives at `packages/livery/sql/001_library.sql`, **o
 When you choose to activate the feature, with Node 22.12+ and the existing `.env` configured:
 
 ```powershell
-cd "C:\Users\erlcl\Downloads\nyc main bot"
+cd "C:\Users\erlcl\Downloads\Los Angeles Bot"
 npm ci
 # Ensure the existing PostgreSQL server from your current setup is running first.
 npm run livery:setup

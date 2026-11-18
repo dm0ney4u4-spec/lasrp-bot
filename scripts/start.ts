@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import fs from 'node:fs';
-import {projectName} from '../config/project.js';
-try{const response=await fetch('http://127.0.0.1:'+(process.env.PORT??3000)+'/health',{signal:AbortSignal.timeout(1000)}),health=await response.json() as {service?:string;database?:string};if([projectName,'NYCRP Operations'].includes(health.service??'')&&health.database==='connected'){console.log(projectName+' is already running. Open http://localhost:'+(process.env.PORT??3000)+'. Use npm run stop before restarting.');process.exit(0);}}catch{}
+try{const response=await fetch('http://127.0.0.1:'+(process.env.PORT??3000)+'/health',{signal:AbortSignal.timeout(1000)}),health=await response.json() as {service?:string;database?:string};if(health.service==='NYCRP Operations'&&health.database==='connected'){console.log('NYCRP is already running. Open http://localhost:'+(process.env.PORT??3000)+'. Use npm run stop before restarting.');process.exit(0);}}catch{}
 fs.mkdirSync('data',{recursive:true});const lock='data/startup-lock.json';
 const {acquireStartupLock}=await import('./startup-lock.js');const releaseLock=acquireStartupLock(lock);
 if(!releaseLock){console.log('NYCRP is already starting in another verified launcher. Wait for its startup window.');process.exit(0);}

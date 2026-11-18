@@ -27,7 +27,7 @@ Reference: [official v2 OpenAPI specification](https://api.erlc.gg/internal/docs
 Use Node 22.12+ and the existing root `.env`/database setup. The currently configured ER:LC key was present and successfully verified by a one-time read-only request. No key was printed. At verification on October 23, 2026, the API reported 0 players, capacity 50, and an empty queue. That was an observation, not a static website default.
 
 ```powershell
-cd "C:\Users\erlcl\Downloads\nyc main bot"
+cd "C:\Users\erlcl\Downloads\Los Angeles Bot"
 npm run site:dev
 ```
 

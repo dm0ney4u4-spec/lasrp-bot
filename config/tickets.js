@@ -1,10 +1,9 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ids } from './ids.js';
-import { projectName } from './project.js';
 const branding = fileURLToPath(new URL('../assets/branding/', import.meta.url));
 export const ticketConfig = {
-    botName: projectName,
+    botName: 'New York Automation',
     guildId: process.env.DISCORD_GUILD_ID || ids.guildId,
     panelChannelId: process.env.TICKET_PANEL_CHANNEL_ID || '1569512860986380449',
     transcriptChannelId: '1530312641728217189',

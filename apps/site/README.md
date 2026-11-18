@@ -7,7 +7,7 @@ A React / TypeScript / Vite member website alongside the existing Discord bot an
 Install Node.js 22.12 or newer. From a VS Code terminal in the repository:
 
 ```powershell
-cd "C:\Users\erlcl\Downloads\nyc main bot"
+cd "C:\Users\erlcl\Downloads\Los Angeles Bot"
 npm ci
 npm ci --prefix apps/site
 npm run site:dev
