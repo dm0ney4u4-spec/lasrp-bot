@@ -37,6 +37,7 @@ export class CommunityService {
     return render(t, { ...this.variables(g, member), ...vars }, { page, ephemeral });
   }
   async publish(guildId, channelId, key, actor, vars = {}, publishedId) {
+    if(['community_rules','server_rules'].includes(key)&&!ids.featureFlags.regulations)throw Error('The Discord regulations panel has been removed and publishing is disabled.');
     if(key==='support'&&this.ticketSystem){const message=await this.ticketSystem.publish(channelId,await this.ticketSystem.actor(actor));return {id:message.id,key,channel:channelId,message:message.id,vars};}
     const g = this.store.guild(guildId), guild = await this.client.guilds.fetch(guildId);
     if(key==='cad'){if(actor!==guild.ownerId)throw Error('Only the server owner may deploy CAD');channelId=ids.channels.cadPanel;}

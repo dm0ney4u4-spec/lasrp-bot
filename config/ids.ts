@@ -10,7 +10,7 @@ export const ids = {
  categories:{tickets:'',archivedTickets:''},
  // AutoMod uses Discord's native filters. Add exact unwanted domains, without protocols.
  automod:{mentionLimit:5,blockedDomains:[] as string[],exemptRoles:[] as string[],exemptChannels:[] as string[]},
- featureFlags:{cad:true,tickets:true,applications:true,security:true,sessions:true,automod:true,courts:false},
+ featureFlags:{regulations:false,cad:true,tickets:true,applications:true,security:true,sessions:true,automod:true,courts:false},
  courtsPolicy:{specialistRolesEnabled:false},
  // Rank order is lowest to highest; team badges are assigned automatically.
  staffRankRoles:['1529549373552197663','1529544880626602146','1529544875308089558','1529544864960745553','1529544859126333682','1529544806555193434','1529544798288220442','1529544793699516486','1529544677777342625','1529543672612388894','1529543669000962209','1529543662445269022','1534213008710959185','1534212901122867272','1529545703024627754','1529542214336778322','1529552680287080459','1529541899860316201','1529541841450565773'],
