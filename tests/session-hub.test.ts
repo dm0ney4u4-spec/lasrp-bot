@@ -76,7 +76,7 @@ test('PostgreSQL session integration: migrations, concurrent actions, restart, o
   const channel=(id:string)=>{
     if(!messages.has(id))messages.set(id,new Collection());const records=messages.get(id)!;
     const make=(payload:any)=>{const mid=String(++serial);const m:any={id:mid,url:'https://discord.com/channels/'+config.guildId+'/'+id+'/'+mid,author:{id:'bot'},createdTimestamp:Date.now(),edit:async(p:any)=>{m.payload=p;apply(p);return m;}};const apply=(p:any)=>{const actual=JSON.parse(JSON.stringify(p.components).replaceAll("attachment://","https://cdn.discordapp.com/attachments/test/"));m.components=actual.map((c:any)=>({toJSON:()=>c}));m.attachments=new Collection();};apply(payload);m.payload=payload;records.set(mid,m);return m;};
-    return{id,isTextBased:()=>true,send:async(p:any)=>{sent.push({channelId:id,...p});return make(p);},messages:{fetch:async(arg:any)=>{if(typeof arg==='string'){if(!records.has(arg))throw Object.assign(Error('deleted'),{code:10008});return records.get(arg);}return new Collection([...records.entries()].reverse().filter(([id])=>!arg.before||+id<+arg.before).slice(0,arg.limit));}}};
+    return{id,isTextBased:()=>true,send:async(p:any)=>{sent.push({channelId:id,...p});return make(p);},messages:{fetch:async(arg:any)=>{if(arg?.message)arg=arg.message;if(typeof arg==='string'){if(!records.has(arg))throw Object.assign(Error('deleted'),{code:10008});return records.get(arg);}return new Collection([...records.entries()].reverse().filter(([id])=>!arg.before||+id<+arg.before).slice(0,arg.limit));}}};
   };
   let held=true,roleDanger=false;const member={roles:{cache:new Collection([[config.roles.sessionStaff[0],{}]]),add:async()=>{held=true;},remove:async()=>{held=false;}}};
   const guild={members:{fetch:async({user}:any)=>user==='staff'?member:{roles:{cache:new Collection(held?[[config.roles.notificationSubscriber,{}]]:[]),add:async()=>{held=true;},remove:async()=>{held=false;}}},fetchMe:async()=>({permissions:new PermissionsBitField(PermissionFlagsBits.ManageRoles),roles:{highest:{comparePositionTo:()=>1}}})},roles:{fetch:async()=>({id:config.roles.notificationSubscriber,managed:false,permissions:new PermissionsBitField(roleDanger?PermissionFlagsBits.Administrator:0n)})},channels:{fetch:async(id:string)=>channel(id)}};
@@ -85,6 +85,22 @@ test('PostgreSQL session integration: migrations, concurrent actions, restart, o
   let hub=new Sessions(client,service,erlc,config,repository);
   const interaction=(name:string,sub:string,user='staff',customId?:string,options:any={})=>{const replies:any[]=[];return {guildId:config.guildId,user:{id:user},commandName:name,customId,options:{getSubcommand:()=>sub,getInteger:()=>options.votes??null,getString:()=>options.reason??null},isChatInputCommand:()=>!customId,deferReply:async()=>{},editReply:async(p:any)=>{replies.push(p);},replies};};
   try{
+    await t.test('repeated V2 edits preserve backing image attachments and replace one container',async()=>{
+      const context:any={artworkRefreshed:new Set()}, retained=new Set<string>(), edits:any[]=[];
+      let components:any[]=[];
+      const message:any={id:'media-regression',attachments:new Collection(),get components(){return components.map(c=>({toJSON:()=>c}));},edit:async(payload:any)=>{
+        edits.push(payload);
+        if(payload.attachments!==undefined)retained.clear();
+        for(const file of payload.files||[])retained.add('https://cdn.discordapp.com/attachments/regression/'+file.name);
+        components=JSON.parse(JSON.stringify(payload.components),(_key,value)=>typeof value==='string'&&value.startsWith('attachment://')?'https://cdn.discordapp.com/attachments/regression/'+value.slice(13):value);
+        for(const url of JSON.stringify(components).match(/https:\/\/cdn\.discordapp\.com\/attachments\/[^"\s]+/g)||[])assert.ok(retained.has(url),'the image backing a reused CDN URL must not be deleted');
+        assert.equal(components.filter(c=>c.type===17).length,1);return message;
+      }};
+      for(let pass=0;pass<5;pass++)await Sessions.prototype.editMessage.call(context,message,panelView(config,initialState(),serverInfo({})));
+      assert.equal(edits[0].files.length,3);assert.deepEqual(edits[0].attachments,[]);
+      for(const edit of edits.slice(1)){assert.equal(edit.files,undefined);assert.equal(edit.attachments,undefined);}
+      assert.equal(retained.size,3);assert.equal(edits.length,5);
+    });
     await t.test('fresh role checks reject members and wrong guild while allowing public status',async()=>{
       await assert.rejects(()=>hub.staff('member',config.guildId),/Session Staff/);await assert.rejects(()=>hub.staff('staff','other'),/main NYC/);
       const i=interaction('session','start','member');await hub.interaction(i);assert.equal((await repository.read()).mode,'OFFLINE');assert.ok(JSON.stringify(i.replies).includes('Session Staff'));

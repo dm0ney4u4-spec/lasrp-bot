@@ -64,15 +64,19 @@ export class Sessions {
   async editMessage(message, payload) {
     // Discord V2 media lives in components, not necessarily message.attachments.
     // Reuse returned CDN references on routine edits; upload fresh artwork once per restart.
+    let reuse = false;
     if (this.artworkRefreshed.has(message.id) && payload.files.length) {
       const urls = JSON.stringify(message.components.map(c => c.toJSON())).match(/https:\/\/cdn\.discordapp\.com\/attachments\/[^"\s]+/g) || [];
       const replacements = new Map(payload.files.map(f => [f.name, urls.find(url => url.split('?')[0].endsWith('/' + f.name))]));
       if ([...replacements.values()].every(Boolean)) {
         const components = JSON.parse(JSON.stringify(payload.components), (key, value) => typeof value === 'string' && value.startsWith('attachment://') ? replacements.get(value.slice(13)) || value : value);
-        payload = { ...payload, components, files: [] };
+        // Omit BOTH fields. An empty files/attachments array deletes the media
+        // backing these CDN URLs, even when V2 hides it from message.attachments.
+        payload = { ...payload, components, files: undefined };
+        reuse = true;
       }
     }
-    const result = await message.edit({ ...payload, attachments: [] });
+    const result = await message.edit(reuse ? payload : { ...payload, attachments: [] });
     this.artworkRefreshed.add(message.id); return result;
   }
   async flush() {
@@ -112,7 +116,7 @@ export class Sessions {
     for (const vote of votes.values()) {
     if (!vote.messageId || vote.controlsFinalized) continue;
     try {
-      await this.editMessage(await channel.messages.fetch(vote.messageId), voteView(this.config, { ...state, vote }));
+      await this.editMessage(await channel.messages.fetch({ message: vote.messageId, force: true }), voteView(this.config, { ...state, vote }));
       if (vote.closed) await this.repository.act({ type: 'vote-finalized', voteId: vote.id }, 'system');
     }
     catch (error) {
@@ -129,7 +133,7 @@ export class Sessions {
     const state = await this.repository.read(), channel = await this.channel(this.config.channels.permanentPanel);
     const payload = panelView(this.config, state, serverInfo());
     let message;
-    if (state.panel?.messageId) try { message = await channel.messages.fetch(state.panel.messageId); } catch (error) { if (!missing(error)) throw error; }
+    if (state.panel?.messageId) try { message = await channel.messages.fetch({ message: state.panel.messageId, force: true }); } catch (error) { if (!missing(error)) throw error; }
     if (!message) message = await this.recoverMessage(channel, 'panel-banner', 0);
     const created = !message;
     if (message) await this.editMessage(message, payload); else message = await channel.send({ ...payload, nonce: createHash('sha256').update(this.config.guildId + ':session-panel').digest('hex').slice(0, 24), enforceNonce: true });

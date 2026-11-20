@@ -2,7 +2,7 @@
 
 - `npm run check`: passed.
 - `npm run build`: passed (TypeScript and CAD bundle).
-- `npm test`: **181 passed, 0 failed**, including session presence/lifecycle coverage and the existing Assistance, applications, moderation, CAD admission, authentication and ER adapter regression tests.
+- `npm test`: **182 passed, 0 failed**, including repeated V2 image-retention edits, session presence/lifecycle coverage and the existing Assistance, applications, moderation, CAD admission, authentication and ER adapter regression tests.
 - `npm run db:generate`: passed; existing local PostgreSQL started and applied the additive session migration without a reset.
 - `npm run session:check`: actual main guild, announcement/panel/log channels and both configured roles found; bot channel permissions and notification-role hierarchy ready.
 - Actual existing bot restarted successfully. Local `/health` reports PostgreSQL and Discord connected.
@@ -18,3 +18,9 @@
 Panel: https://discord.com/channels/1529507818452029650/1529553843199807590/1561912909947469904
 
 See [SESSION_SYSTEM.md](SESSION_SYSTEM.md) for commands, exact changed-file groups, configuration, Windows startup, recovery behavior and limitations.
+
+## November 20 image refresh repair
+
+The reported duplicate-looking hub contained one actual message/container, with all three media URLs returning HTTP 404. Routine edits had reused the CDN references while sending an empty attachments list, deleting their backing files. Media-reuse edits now omit both files and attachment replacement; fresh uploads still replace old artwork deliberately. Refreshes fetch the actual Discord message before editing instead of relying on its local cache.
+
+The existing message `1561912909947469904` was repaired in place. Three consecutive actual Discord edits retained one container and HTTP 200 responses for the banner, logo and footer. A subsequent channel scan found the same sole hub and working images. A regression test exercises five repeated edits and fails if an edit removes any backing image. No replacement hub or test session announcement was posted.
