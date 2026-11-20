@@ -37,16 +37,21 @@ export function panelView(config, state, info) {
 }
 export function voteView(config, state) {
   const v = state.vote, reached = v.voters.length >= v.threshold;
-  return layout(config, v.closed ? 'Session Vote Closed' : reached ? 'Required Votes Reached!' : 'Session Vote!', ['Our staff team is considering starting a new New York City Roleplay session! If you are available to participate, cast your vote below.', v.closed ? safe(v.closeReason) : reached ? 'The session has enough votes and is awaiting a staff member to start it. Voting does not start a session automatically.' : 'Once enough votes are received, staff can begin the session. Click Vote again to remove your vote.'], [row(button('nycs:vote:' + v.id, `Vote — ${v.voters.length}/${v.threshold}`, 1, v.closed), button('nycs:voters:' + v.id, 'View Voters'), button('nycs:cancel:' + v.id, 'Cancel Vote', 4, v.closed))], 'vote', v.id);
+  const payload = layout(config, v.closed ? 'Session Vote Closed' : reached ? 'Required Votes Reached!' : 'Session Vote!', ['Our staff team is considering starting a new New York City Roleplay session! If you are available to participate, cast your vote below.', v.closed ? safe(v.closeReason) : reached ? 'The session has enough votes and is awaiting a staff member to start it. Voting does not start the session automatically.' : 'Once enough votes are received, staff can begin the session. Click Vote again to remove your vote.'], [row(button('nycs:vote:' + v.id, `Vote — ${v.voters.length}/${v.threshold}`, 1, v.closed), button('nycs:voters:' + v.id, 'View Voters'))], 'vote', v.id);
+  // Keep the visible mention when the counter is edited; only the initial send may ping.
+  payload.components.unshift(text(`<@&${config.roles.notificationSubscriber}>`));
+  return payload;
 }
 export function announcement(config, event, state, info) {
   const titles = { start: 'Session Started!', low: 'Session Low!', shutdown: 'Session Shutdown', threshold: 'Required Votes Reached!', cancel: 'Session Vote Cancelled' };
   if (event.kind === 'vote') {
     const payload = voteView(config, state);
-    payload.components[0].components.splice(2, 0, text(`<@&${config.roles.sessionPing}>`));
-    payload.components[0].components.splice(-1, 0, row(button('nycs:receipt:' + event.id, 'Session Vote', 2, true)));
-    payload.allowedMentions = { parse: [], roles: [config.roles.sessionPing] };
+    payload.allowedMentions = { parse: [], roles: [config.roles.notificationSubscriber] };
     return payload;
+  }
+  if (event.kind === 'threshold') {
+    // Notify staff once without posting a second copy of the voting card.
+    return { flags: 32768, allowedMentions: { parse: [], users: [event.data.hostId], roles: config.roles.sessionStaff }, components: [text(`<@${event.data.hostId}> · <@&${config.roles.sessionStaff[0]}> — **Required votes reached (${event.data.votes}/${event.data.threshold}).** Use /session start when ready.`), row(button('nycs:receipt:' + event.id, 'Staff Notified', 2, true))] };
   }
   const current = event.data.current || state.current;
   const bodies = {

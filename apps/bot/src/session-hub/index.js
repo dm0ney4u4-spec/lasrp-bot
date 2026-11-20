@@ -55,7 +55,7 @@ export class Sessions {
       if (event.kind === 'start' && type === 'announcement') await db.session.update({ where: { id: event.data.sessionId }, data: { channelId: channel.id, messageId: event[field] } });
       return;
     }
-    const recovered = await this.recoverMessage(channel, event.id, new Date(event.createdAt).getTime());
+    const recovered = await this.recoverMessage(channel, event.kind === 'vote' ? event.data.voteId : event.id, new Date(event.createdAt).getTime());
     const message = recovered || await channel.send({ ...payload, nonce: createHash('sha256').update(event.id + type).digest('hex').slice(0, 24), enforceNonce: true });
     await this.repository.receipt(event.id, type, message.id); event[field] = message.id;
     if (event.kind === 'start' && type === 'announcement') await db.session.update({ where: { id: event.data.sessionId }, data: { channelId: channel.id, messageId: message.id } });
@@ -181,7 +181,7 @@ export class Sessions {
         const voteId = custom.split(':')[2];
         if (action === 'voters') { const v = state.vote?.id === voteId ? state.vote : state.voteHistory.find(v => v.id === voteId); if (!v) throw Error('This session vote is unavailable.'); const names = v.voters.slice(0, 80).map(id => `<@${id}>`).join(', '); await reply('Session Voters', `**${v.voters.length}/${v.threshold} votes**\n${names || 'No votes yet.'}${v.voters.length > 80 ? `\nPlus ${v.voters.length - 80} more voters.` : ''}`); return true; }
         await this.serialize(async () => { state = await this.repository.act({ type: 'ballot', voteId }, i.user.id); await this.updateVote(); await this.flush(); });
-        await reply('Session Vote', state.vote.voters.includes(i.user.id) ? 'Your vote has been added.' : 'Your vote has been removed.'); return true;
+        await i.editReply({ content: state.vote.voters.includes(i.user.id) ? 'Your vote has been added.' : 'Your vote has been removed.', allowedMentions: { parse: [] } }); return true;
       }
       if (command && action === 'status') { await reply('Session Status', statistics(state)); return true; }
       await this.serialize(async () => {
@@ -196,7 +196,7 @@ export class Sessions {
         if (action === 'dismiss') { await reply('Session Kept Open', 'No session changes were made.'); return; }
         const request = action === 'shutdown-confirm' ? { type: 'shutdown', id: custom.split(':')[2] } : action === 'vote' ? { type: 'vote', threshold: i.options.getInteger('votes') ?? this.config.settings.requiredVotes } : ['cancel', 'cancel-vote'].includes(action) ? { type: 'cancel', voteId: command ? state.vote?.id : custom.split(':')[2] } : { type: action === 'boost' ? 'low' : action };
         await this.repository.act(request, i.user.id); await this.flush(); await this.updateVote(); await this.ensurePanel();
-        await reply('Session Updated', 'The session action has been saved and announced.');
+        await i.editReply({ content: 'The session action has been saved and announced.', allowedMentions: { parse: [] } });
       });
     } catch (error) {
       console.error('Session action failed:', error?.code || error?.name || 'Error');

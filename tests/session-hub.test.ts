@@ -7,7 +7,7 @@ import { Collection, PermissionsBitField, PermissionFlagsBits } from 'discord.js
 import { sessionConfig } from '../config/sessions.js';
 import { initialState, transition } from '../apps/bot/src/session-hub/model.js';
 import { SessionRepository } from '../apps/bot/src/session-hub/repository.js';
-import { panelView, announcement, serverInfo, statistics } from '../apps/bot/src/session-hub/views.js';
+import { panelView, voteView, announcement, serverInfo, statistics } from '../apps/bot/src/session-hub/views.js';
 import { sessionCommands } from '../apps/bot/src/session-hub/commands.js';
 import { snapshotSchema } from '../apps/api/src/erlc.js';
 const config = structuredClone(sessionConfig);
@@ -52,6 +52,9 @@ test('configured IDs, disabled automation, V2 branding, safe join destinations a
   assert.ok(panel.files.some(f=>String(f.attachment).endsWith('main-banner.png')));assert.ok(JSON.stringify(panel).includes('Unavailable'));
   assert.ok(statistics({...initialState(),lastStats:{available:true,at:Date.now()-180000,players:20,capacity:40,staff:2,queue:3}}).includes('**Players:** Unavailable'));
   const result=act(initialState(),'vote'),e=result.events[0];const v:any=announcement(config,e,result.state,serverInfo({}));assert.deepEqual(v.allowedMentions.roles,[config.roles.sessionPing]);assert.equal(JSON.stringify(v.components).split('<@&'+config.roles.sessionPing+'>').length-1,1);
+  assert.ok(!JSON.stringify(v.components).includes('Cancel Vote'));
+  const edited=voteView(config,result.state);assert.equal(edited.components.filter((c:any)=>c.type===17).length,1);assert.ok(JSON.stringify(edited.components).includes('<@&'+config.roles.notificationSubscriber+'>'));assert.deepEqual(edited.allowedMentions,{parse:[]});
+  const threshold=announcement(config,{id:'threshold-event',kind:'threshold',data:{hostId:'staff',votes:2,threshold:2}},result.state,serverInfo({}));assert.ok(!threshold.components.some((c:any)=>c.type===17));assert.equal((threshold as any).files,undefined);
   assert.deepEqual(sessionCommands.map(c=>c.name),['session','ssu','ssd']);
   const subs=sessionCommands[0].toJSON().options!.map(o=>o.name);for(const name of ['vote','start','low','shutdown','status','panel'])assert.ok(subs.includes(name));
 });
@@ -99,9 +102,14 @@ test('PostgreSQL session integration: migrations, concurrent actions, restart, o
       assert.ok((await repository.read()).vote.messageId);assert.equal((await repository.read()).mode,'VOTING');
     });
     await t.test('persistent buttons, threshold once, original message edits, deleted vote and panel repair',async()=>{
-      const voteId=(await repository.read()).vote.id;await hub.interaction(interaction('','','a','nycs:vote:'+voteId));await hub.interaction(interaction('','','b','nycs:vote:'+voteId));assert.equal((await repository.read()).mode,'VOTING');
-      const threshold=sent.filter(s=>JSON.stringify(s.components).includes('# Required Votes Reached!')).length;
-      await hub.interaction(interaction('','','b','nycs:vote:'+voteId));await hub.interaction(interaction('','','b','nycs:vote:'+voteId));assert.equal(sent.filter(s=>JSON.stringify(s.components).includes('# Required Votes Reached!')).length,threshold);
+      const voteId=(await repository.read()).vote.id;
+      const before=sent.filter(s=>s.channelId===config.channels.announcements).length;
+      const click=interaction('','','a','nycs:vote:'+voteId);await hub.interaction(click);
+      assert.equal(sent.filter(s=>s.channelId===config.channels.announcements).length,before,'a vote must edit the existing message without posting another announcement');
+      assert.equal(click.replies.length,1);assert.equal(click.replies[0].content,'Your vote has been added.');assert.equal(click.replies[0].components,undefined);assert.equal(click.replies[0].files,undefined);
+      await hub.interaction(interaction('','','b','nycs:vote:'+voteId));assert.equal((await repository.read()).mode,'VOTING');
+      const threshold=sent.filter(s=>JSON.stringify(s.components).includes('Required votes reached (')).length;assert.equal(threshold,1);
+      await hub.interaction(interaction('','','b','nycs:vote:'+voteId));await hub.interaction(interaction('','','b','nycs:vote:'+voteId));assert.equal(sent.filter(s=>JSON.stringify(s.components).includes('Required votes reached (')).length,threshold);
       const old=(await repository.read()).vote.messageId;messages.get(config.channels.announcements)!.delete(old);await hub.updateVote();assert.notEqual((await repository.read()).vote.messageId,old);
       await hub.refresh();const p=(await repository.read()).panel.messageId;await hub.refresh();assert.equal((await repository.read()).panel.messageId,p);assert.equal((await repository.read()).lastStats.players,0);assert.equal((await repository.read()).lastStats.staff,0);
       messages.get(config.channels.permanentPanel)!.delete(p);await hub.refresh();assert.notEqual((await repository.read()).panel.messageId,p);
