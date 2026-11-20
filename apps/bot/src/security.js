@@ -1,6 +1,7 @@
 import { PermissionFlagsBits, AuditLogEvent, Events, ChannelType } from 'discord.js';
 import { render } from './panels.js';
 import { requireAccess } from './access.js';
+import { isBotOwner } from './owner-access.js';
 
 export function watchSecurity(service) {
   const joins=new Map(),audit=new Map();
@@ -21,7 +22,7 @@ export function watchSecurity(service) {
 }
 export async function lockdown(service,guild,actor,enabled,reason) {
   const g=service.store.guild(guild.id);requireAccess(actor,g.config,'management');
-  if(!actor.permissions.has(PermissionFlagsBits.ManageChannels))throw Error('Manage Channels permission is required.');
+  if(!isBotOwner(actor.id)&&!actor.permissions.has(PermissionFlagsBits.ManageChannels))throw Error('Manage Channels permission is required.');
   if(enabled&&g.lockdown&&!g.lockdown.restored)throw Error('A lockdown is already active or requires recovery. Unlock it before starting another.');
   const channels=await guild.channels.fetch();
   if(enabled){

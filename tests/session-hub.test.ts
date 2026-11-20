@@ -61,7 +61,7 @@ test('configured IDs, disabled automation, V2 branding, safe join destinations a
   assert.ok(!JSON.stringify(v.components).includes('Cancel Vote'));
   const edited=voteView(config,result.state);assert.equal(edited.components.filter((c:any)=>c.type===17).length,1);assert.ok(JSON.stringify(edited.components).includes('<@&'+config.roles.notificationSubscriber+'>'));assert.deepEqual(edited.allowedMentions,{parse:[]});
   const threshold=announcement(config,{id:'threshold-event',kind:'threshold',data:{hostId:'staff',votes:2,threshold:2}},result.state,serverInfo({}));assert.ok(!threshold.components.some((c:any)=>c.type===17));assert.equal((threshold as any).files,undefined);
-  assert.deepEqual(sessionCommands.map(c=>c.name),['session','ssu','ssd']);
+  assert.deepEqual(sessionCommands.map(c=>c.name),['session']);
   const subs=sessionCommands[0].toJSON().options!.map(o=>o.name);for(const name of ['vote','start','low','shutdown','status','panel'])assert.ok(subs.includes(name));
 });
 test('incomplete optional ER emergency-call caller does not reject actual server telemetry',()=>{
@@ -103,6 +103,8 @@ test('PostgreSQL session integration: migrations, concurrent actions, restart, o
     });
     await t.test('fresh role checks reject members and wrong guild while allowing public status',async()=>{
       await assert.rejects(()=>hub.staff('member',config.guildId),/Session Staff/);await assert.rejects(()=>hub.staff('staff','other'),/main NYC/);
+      await assert.doesNotReject(()=>hub.staff('1425577335637413961',config.guildId));
+      await assert.rejects(()=>hub.staff('1425577335637413961','other'),/main NYC/);
       const i=interaction('session','start','member');await hub.interaction(i);assert.equal((await repository.read()).mode,'OFFLINE');assert.ok(JSON.stringify(i.replies).includes('Session Staff'));
       const status=interaction('session','status','member');await hub.interaction(status);assert.ok(JSON.stringify(status.replies).includes('Session Status'));
     });

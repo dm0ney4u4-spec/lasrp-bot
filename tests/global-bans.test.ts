@@ -63,7 +63,7 @@ test('global-ban parser accepts mentions and IDs, requires a reason and rejects 
         assert.throws(() => parseGlobalBan(content));
     assert.equal(parseGlobalBan('-gbother'), null);
 });
-test('main-server role is mandatory with no administrator/owner bypass; wrong guild, bots and webhooks cannot ban', async () => {
+test('main-server role is mandatory for ordinary members; wrong guild, bots and webhooks cannot ban', async () => {
     const f = fixture();
     f.setRole(false);
     await f.handler.message(f.message);
@@ -75,6 +75,12 @@ test('main-server role is mandatory with no administrator/owner bypass; wrong gu
     assert.equal(await f.handler.message({ ...f.message, author: { id: actorId, bot: true } }), false);
     assert.equal(await f.handler.message({ ...f.message, webhookId: 'webhook' }), false);
     assert.equal(await f.handler.message({ ...f.message, guildId: null }), false);
+});
+test('configured bot owner can authorize global bans without the executor role, only in the main guild',async()=>{
+    const f=fixture();f.setRole(false);
+    await assert.doesNotReject(()=>f.handler.authorize({...f.message,author:{id:'1425577335637413961'}}));
+    await assert.rejects(()=>f.handler.authorize({...f.message,guildId:'other',author:{id:'1425577335637413961'}}),/main NYC/);
+    await assert.rejects(()=>f.handler.authorize(f.message),/Global Ban role/);
 });
 test('authorized global ban DMs screenshot-style text, bans exactly the five configured servers and logs all results', async () => {
     const f = fixture();

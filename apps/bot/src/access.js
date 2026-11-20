@@ -1,6 +1,8 @@
 import { PermissionFlagsBits } from 'discord.js';
+import { isBotOwner } from './owner-access.js';
 export function access(member, config, level) {
   if (!member) return false;
+  if (isBotOwner(member.id)) return true;
   if (config.owners?.includes(member.id)) return true;
   const roles = level === 'management' ? config.managementRoles : level === 'department' ? [...config.departmentRoles, ...config.managementRoles] : [...config.staffRoles, ...config.managementRoles];
   return roles.some(id => member.roles.cache.has(id));

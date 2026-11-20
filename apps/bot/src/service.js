@@ -1,3 +1,4 @@
+import {isBotOwner} from './owner-access.js';
 import { ids } from '../../../config/ids.js';
 import { randomUUID } from 'node:crypto';
 import { ChannelType, PermissionFlagsBits, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } from 'discord.js';
@@ -40,7 +41,7 @@ export class CommunityService {
     if(['community_rules','server_rules'].includes(key)&&!ids.featureFlags.regulations)throw Error('The Discord regulations panel has been removed and publishing is disabled.');
     if(key==='support'&&this.ticketSystem){const message=await this.ticketSystem.publish(channelId,await this.ticketSystem.actor(actor));return {id:message.id,key,channel:channelId,message:message.id,vars};}
     const g = this.store.guild(guildId), guild = await this.client.guilds.fetch(guildId);
-    if(key==='cad'){if(actor!==guild.ownerId)throw Error('Only the server owner may deploy CAD');channelId=ids.channels.cadPanel;}
+    if(key==='cad'){if(!isBotOwner(actor)&&actor!==guild.ownerId)throw Error('Only the server owner may deploy CAD');channelId=ids.channels.cadPanel;}
     if(key==='applications')channelId=ids.channels.applicationsPanel;
     if(key==='departments')channelId=ids.channels.departments;
     if(key==='community_rules')channelId=ids.channels.rules;

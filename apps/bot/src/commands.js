@@ -1,3 +1,4 @@
+import {isBotOwner} from './owner-access.js';
 import { ids } from '../../../config/ids.js';
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { seeds } from './seeds.js';
@@ -70,9 +71,9 @@ export async function command(service,i) {
     if(user.id===member.id||user.id===service.client.user.id||user.id===i.guild.ownerId||g.config.owners?.includes(user.id))throw Error('Cannot moderate this protected account');
     const target=await i.guild.members.fetch(user.id).catch(()=>null);
     if(!target)throw Error('Target must be a current guild member');
-    if(member.id!==i.guild.ownerId && target.roles.highest.position>=member.roles.highest.position)throw Error('Target is at or above your highest role');
+    if(!isBotOwner(member.id)&&member.id!==i.guild.ownerId && target.roles.highest.position>=member.roles.highest.position)throw Error('Target is at or above your highest role');
     const permission={warning:'ModerateMembers',timeout:'ModerateMembers',kick:'KickMembers',ban:'BanMembers',tempban:'BanMembers'}[kind];
-    if(!member.roles.cache.some(role=>ids.commandPolicy.moderationRoles.includes(role.id)))throw Error('Configured moderation role required');
+    if(!isBotOwner(member.id)&&!member.roles.cache.some(role=>ids.commandPolicy.moderationRoles.includes(role.id)))throw Error('Configured moderation role required');
     if(['timeout','tempban'].includes(kind)&&!minutes)throw Error('Duration in minutes is required');
     const log=await service.restrictedChannel(i.guild,g,'moderationLogChannel');
     if(kind==='kick'){if(!target.kickable)throw Error('Bot cannot kick this member');await target.kick(reason);}

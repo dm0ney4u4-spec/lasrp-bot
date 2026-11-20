@@ -1,5 +1,6 @@
 import { MessageFlags, ContainerBuilder, TextDisplayBuilder, PermissionFlagsBits, escapeMarkdown } from 'discord.js';
 import { globalBanConfig } from '../../../config/global-bans.js';
+import { isBotOwner } from './owner-access.js';
 class BanError extends Error {
 }
 const errorCode = error => String(error?.code ?? error?.name ?? 'UNKNOWN');
@@ -42,7 +43,7 @@ export class GlobalBans {
         if (message.guildId !== this.config.mainGuildId)
             throw new BanError('This command can only be used in the main NYC server.');
         const member = await (await this.mainGuild()).members.fetch({ user: message.author.id, force: true });
-        if (!member.roles.cache.has(this.config.executorRoleId))
+        if (!isBotOwner(message.author.id) && !member.roles.cache.has(this.config.executorRoleId))
             throw new BanError('You need the configured Global Ban role in the main NYC server to use this command.');
     }
     async save(record) {

@@ -1,3 +1,4 @@
+import {isBotOwner} from './owner-access.js';
 import {regulationsTemplate,regulationsInteraction} from './regulations.js';
 import{departmentTemplate,departmentInteraction}from'./departments.js';
 import {liveryCommand} from './livery/commands.js';
@@ -78,7 +79,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
    if(await applications.interaction(i))return;
    if(await tickets.interaction(i))return;
    if(i.isChatInputCommand()){
-    if(['moderate','case'].includes(i.commandName)){const p=await principal(i.user.id);if(!p.roles.some(role=>ids.commandPolicy.moderationRoles.includes(role)))throw Error('Configured moderation role required');}
+    if(['moderate','case'].includes(i.commandName)){const p=await principal(i.user.id);if(!isBotOwner(i.user.id)&&!p.roles.some(role=>ids.commandPolicy.moderationRoles.includes(role)))throw Error('Configured moderation role required');}
     if(i.commandName==='panic'){const p=await principal(i.user.id),unit=await db.unit.findUniqueOrThrow({where:{userId:i.user.id}});await i.deferReply({flags:64});const result=await signalPanic(p,{version:unit.version,reason:i.options.getString('reason',true)});await editReply(i,notice('Unit emergency sent',String(result.recipientCount)+' on-duty recipients were notified in CAD. This does not contact real emergency services.'));return;}
     if(i.commandName==='staff'){await staffAction(service,i,await principal(i.user.id));return;}
     if(i.commandName==='security'){
@@ -112,7 +113,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
      await i.reply({...payload,components:[container]});return;
     }
     if(i.commandName==='help'){const p=await principal(i.user.id);await i.reply(notice('NYCRP Operations | Help',`**Members:** Applications: <#${ids.channels.applicationsPanel}>. CAD: <#${ids.channels.cadPanel}>. /applications status\n${allowed(p,'host','moderator')?'**Operations:** /session start, /session shutdown, /session vote, /session low, /moderate\n':''}${allowed(p,'management')?'**Management:** /setup, /panel deploy, /staff, /case, /security, /applications open or close\n':''}**CAD:** ${process.env.WEB_BASE_URL??'http://localhost:3000'}\nOnly registered commands are available.`));return;}
-    if(i.commandName==='cad'){if(i.user.id!==i.guild!.ownerId)throw Error('Only the server owner can deploy the CAD panel');await deploy(i,service,'cad');return;}
+    if(i.commandName==='cad'){if(!isBotOwner(i.user.id)&&i.user.id!==i.guild!.ownerId)throw Error('Only the server owner can deploy the CAD panel');await deploy(i,service,'cad');return;}
     if(i.commandName==='erlc'){
      const p=await principal(i.user.id);if(!allowed(p,'moderator','host','dispatcher'))throw Error('Operational access required');await i.deferReply({flags:64});const action=i.options.getSubcommand();
      if(action==='message'){if(!allowed(p,'management'))throw Error('Management approval required');const text=i.options.getString('text',true);const outcome=await erlc.message(text);await audit(i.user.id,'erlc.message',ids.guildId,null,{confirmed:outcome.confirmed});await editReply(i,notice('ER:LC confirmed','The API confirmed execution of the approved announcement.'));return;}
@@ -144,7 +145,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
  return {client,service,applications,ticketSystem,globalBans,sessionHub:sessions,bootstrap:async()=>{await bootstrapCommunity(service);try{await applications.compactExistingReviews();}catch{console.error('Existing application review compaction needs attention.');}}};
 }
 async function deploy(i:ChatInputCommandInteraction,service:CommunityService,key:string){
- await i.deferReply({flags:64});if(key==='cad'&&i.user.id!==i.guild!.ownerId)throw Error('Only the server owner can deploy the CAD panel');const channelId=key==='cad'?ids.channels.cadPanel:key==='applications'?ids.channels.applicationsPanel:key==='departments'?ids.channels.departments:key==='community_rules'?ids.channels.rules:i.channelId;const g=service.store.guild(i.guildId!),old=Object.values(g.published).find((p:any)=>p.key===key&&p.channel===channelId) as {id:string}|undefined;const publication=await service.publish(i.guildId!,channelId,key,i.user.id,{},old?.id);await editReply(i,notice('Panel ready',`**${key}** published as message ${publication.message}. Repeating this command updates the existing panel.`));
+ await i.deferReply({flags:64});if(key==='cad'&&!isBotOwner(i.user.id)&&i.user.id!==i.guild!.ownerId)throw Error('Only the server owner can deploy the CAD panel');const channelId=key==='cad'?ids.channels.cadPanel:key==='applications'?ids.channels.applicationsPanel:key==='departments'?ids.channels.departments:key==='community_rules'?ids.channels.rules:i.channelId;const g=service.store.guild(i.guildId!),old=Object.values(g.published).find((p:any)=>p.key===key&&p.channel===channelId) as {id:string}|undefined;const publication=await service.publish(i.guildId!,channelId,key,i.user.id,{},old?.id);await editReply(i,notice('Panel ready',`**${key}** published as message ${publication.message}. Repeating this command updates the existing panel.`));
 }
 export async function validateSetup(service:CommunityService,erlc:ErlcAdapter){
  const lines:string[]=[];await db.$queryRaw`SELECT 1`;lines.push('◆ PostgreSQL: connected');

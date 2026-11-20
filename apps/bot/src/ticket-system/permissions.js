@@ -1,4 +1,5 @@
 import { PermissionFlagsBits } from 'discord.js';
+import { isBotOwner } from '../owner-access.js';
 import { TicketError } from './database.js';
 export const categoryFor = (config, key) => {
     const found = config.categories.find(c => c.key === key);
@@ -7,10 +8,10 @@ export const categoryFor = (config, key) => {
     return found;
 };
 export function actorFromMember(member) {
-    return { id: member.id, roles: [...member.roles.cache.keys()], administrator: member.id === member.guild?.ownerId || member.permissions.has(PermissionFlagsBits.Administrator), username: member.user?.username ?? member.displayName };
+    return { id: member.id, roles: [...member.roles.cache.keys()], administrator: isBotOwner(member.id) || member.id === member.guild?.ownerId || member.permissions.has(PermissionFlagsBits.Administrator), username: member.user?.username ?? member.displayName };
 }
 export function isAdministrator(actor, config) {
-    return config.allowDiscordAdministrators && actor.administrator || config.administratorRoleIds.some(id => actor.roles.includes(id));
+    return isBotOwner(actor.id) || config.allowDiscordAdministrators && actor.administrator || config.administratorRoleIds.some(id => actor.roles.includes(id));
 }
 export function managementRoles(ticket, config) {
     return [...new Set([categoryFor(config, ticket.category).supportRoleId, ...ticket.escalatedRoles])];

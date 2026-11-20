@@ -5,6 +5,7 @@ import { sessionConfig } from '../../../../config/sessions.js';
 import { SessionRepository } from './repository.js';
 import { initialState, label } from './model.js';
 import { sessionPresence } from './presence.js';
+import { isBotOwner } from '../owner-access.js';
 import { serverInfo, panelView, voteView, announcement, logView, layout, row, button, safe, statistics } from './views.js';
 export { sessionCommands } from './commands.js';
 const missing = error => error?.code === 10008;
@@ -34,6 +35,7 @@ export class Sessions {
   async staff(userId, guildId) {
     if (guildId !== this.config.guildId) throw Error('Session management is only available in the main NYC server.');
     const guild = await this.client.guilds.fetch(this.config.guildId), member = await guild.members.fetch({ user: userId, force: true });
+    if (isBotOwner(userId)) return member;
     if (!this.config.roles.sessionStaff.some(id => member.roles.cache.has(id))) throw Error('The configured Session Staff role is required.');
     return member;
   }
@@ -177,11 +179,12 @@ export class Sessions {
     let action;
     try {
       if (i.guildId !== this.config.guildId) throw Error('Use session controls in the main NYC server.');
+      if (command && i.commandName !== 'session') throw Error('This old session command has been removed. Use /session instead.');
       await this.serialize(() => this.initialize());
       if (legacy) throw Error('These old session controls have been retired. Use /session status or the new session panel.');
       let state = await this.repository.read();
       const reply = (title, body, controls = []) => i.editReply(layout(this.config, title, [body], controls, 'main', 'private', true));
-      if (command) action = i.commandName === 'ssu' ? 'start' : i.commandName === 'ssd' ? 'shutdown' : i.options.getSubcommand();
+      if (command) action = i.options.getSubcommand();
       else action = custom.split(':')[1];
       if (['status', 'join', 'notifications', 'vote', 'voters'].includes(action) && !command) {
         if (action === 'status') { await reply('Session Status', statistics(state)); return true; }
@@ -193,6 +196,7 @@ export class Sessions {
         await i.editReply({ content: state.vote.voters.includes(i.user.id) ? 'Your vote has been added.' : 'Your vote has been removed.', allowedMentions: { parse: [] } }); return true;
       }
       if (command && action === 'status') { await reply('Session Status', statistics(state)); return true; }
+      if (action === 'boost') throw Error('The old session boost command has been removed. Use /session low.');
       await this.serialize(async () => {
         await this.staff(i.user.id, i.guildId);
         await this.flush();
