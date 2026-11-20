@@ -10,8 +10,14 @@ import { SessionRepository } from '../apps/bot/src/session-hub/repository.js';
 import { panelView, voteView, announcement, serverInfo, statistics } from '../apps/bot/src/session-hub/views.js';
 import { sessionCommands } from '../apps/bot/src/session-hub/commands.js';
 import { snapshotSchema } from '../apps/api/src/erlc.js';
+import { sessionPresence } from '../apps/bot/src/session-hub/presence.js';
 const config = structuredClone(sessionConfig);
 const act = (s:any, type:string, who='staff', extra:any={}, now=1000000) => transition(s, {type,...extra}, who, config, now);
+test('session presence sleeps without a session and shows genuine fresh counts only while active',()=>{
+  for(const mode of ['OFFLINE','VOTING','SHUTTING_DOWN']){const p=sessionPresence({...initialState(),mode});assert.equal(p.status,'idle');assert.equal(p.activities[0].state,'💤Sleeping');}
+  for(const mode of ['ONLINE','LOW_ACTIVITY']){const s={...initialState(),mode,current:{id:'active'},lastStats:{available:true,at:1000,players:0,capacity:50}};const p=sessionPresence(s,2000);assert.equal(p.status,'online');assert.equal(p.activities[0].state,'0/50 players in-game');assert.equal(sessionPresence(s,122000).activities[0].state,'In-game player count unavailable');assert.equal(sessionPresence({...s,lastStats:{...s.lastStats,available:false}},2000).activities[0].state,'In-game player count unavailable');}
+  assert.equal(serverInfo({}).name,'New York City Roleplay');assert.equal(serverInfo({}).owner,'Dm0ney_4u');assert.equal(serverInfo({ERLC_SERVER_NAME:'Override',ERLC_SERVER_OWNER:'Owner'}).name,'Override');
+});
 test('session vote toggle, one vote, threshold notification once, and no automatic start', () => {
   let result=act(initialState(),'vote'); let s=result.state;
   assert.equal(s.vote.threshold,2); assert.equal(s.mode,'VOTING');assert.equal(result.events[0].kind,'vote');
@@ -74,7 +80,7 @@ test('PostgreSQL session integration: migrations, concurrent actions, restart, o
   };
   let held=true,roleDanger=false;const member={roles:{cache:new Collection([[config.roles.sessionStaff[0],{}]]),add:async()=>{held=true;},remove:async()=>{held=false;}}};
   const guild={members:{fetch:async({user}:any)=>user==='staff'?member:{roles:{cache:new Collection(held?[[config.roles.notificationSubscriber,{}]]:[]),add:async()=>{held=true;},remove:async()=>{held=false;}}},fetchMe:async()=>({permissions:new PermissionsBitField(PermissionFlagsBits.ManageRoles),roles:{highest:{comparePositionTo:()=>1}}})},roles:{fetch:async()=>({id:config.roles.notificationSubscriber,managed:false,permissions:new PermissionsBitField(roleDanger?PermissionFlagsBits.Administrator:0n)})},channels:{fetch:async(id:string)=>channel(id)}};
-  const client:any={user:{id:'bot'},guilds:{fetch:async()=>guild}};const g:any={records:{},votes:{},sessions:[]};const service:any={store:{guild:()=>g,save:()=>{},flush:async()=>{}}};
+  const presences:any[]=[];const client:any={user:{id:'bot',setPresence:(p:any)=>presences.push(p)},guilds:{fetch:async()=>guild}};const g:any={records:{},votes:{},sessions:[]};const service:any={store:{guild:()=>g,save:()=>{},flush:async()=>{}}};
   const erlc:any={snapshot:async()=>({at:Date.now(),data:{CurrentPlayers:0,MaxPlayers:40,Players:[],Queue:[]}})};
   let hub=new Sessions(client,service,erlc,config,repository);
   const interaction=(name:string,sub:string,user='staff',customId?:string,options:any={})=>{const replies:any[]=[];return {guildId:config.guildId,user:{id:user},commandName:name,customId,options:{getSubcommand:()=>sub,getInteger:()=>options.votes??null,getString:()=>options.reason??null},isChatInputCommand:()=>!customId,deferReply:async()=>{},editReply:async(p:any)=>{replies.push(p);},replies};};
@@ -87,11 +93,11 @@ test('PostgreSQL session integration: migrations, concurrent actions, restart, o
     await t.test('notification role toggles and refuses privilege-bearing role',async()=>{assert.equal(await hub.toggleNotifications('member'),false);assert.equal(await hub.toggleNotifications('member'),true);roleDanger=true;await assert.rejects(()=>hub.toggleNotifications('member'),/safely assigned/);roleDanger=false;});
     await t.test('concurrent native starts create only one active session and one event',async()=>{
       const results=await Promise.allSettled([repository.act({type:'start'},'staff'),repository.act({type:'start'},'staff')]);assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal(await db.session.count({where:{activeKey:config.guildId}}),1);
-      await hub.serialize(()=>hub.flush());const state=await repository.read();assert.equal(state.mode,'ONLINE');assert.equal(sent.filter(s=>s.channelId===config.channels.announcements).length,1);
+      await hub.serialize(()=>hub.flush());const state=await repository.read();assert.equal(state.mode,'ONLINE');assert.equal(sent.filter(s=>s.channelId===config.channels.announcements).length,1);assert.equal(presences.at(-1).status,'online');
     });
     await t.test('shutdown confirmation, real history, no second shutdown and no automatic session',async()=>{
       await hub.interaction(interaction('session','shutdown','staff',undefined,{reason:'Finished test'}));const state=await repository.read(),id=Object.keys(state.confirmations)[0];
-      await hub.interaction(interaction('','', 'staff','nycs:shutdown-confirm:'+id));assert.equal((await repository.read()).mode,'OFFLINE');assert.equal((await repository.read()).history.length,1);assert.equal(await db.session.count({where:{activeKey:config.guildId}}),0);
+      await hub.interaction(interaction('','', 'staff','nycs:shutdown-confirm:'+id));assert.equal((await repository.read()).mode,'OFFLINE');assert.equal((await repository.read()).history.length,1);assert.equal(await db.session.count({where:{activeKey:config.guildId}}),0);assert.equal(presences.at(-1).status,'idle');assert.equal(presences.at(-1).activities[0].state,'💤Sleeping');
       const count=sent.length;await hub.interaction(interaction('','', 'staff','nycs:shutdown-confirm:'+id));assert.equal((await repository.read()).history.length,1);assert.equal(sent.filter(s=>JSON.stringify(s.components).includes('# Session Shutdown')).length,1);assert.ok(sent.length>=count);
     });
     await t.test('outbox recovers send-before-receipt crash without duplicate announcement',async()=>{

@@ -41,13 +41,13 @@ Edit **`config/sessions.js`** for the confirmed IDs, vote threshold, low cooldow
 Optional public display values belong in backend `.env`:
 
 ```dotenv
-ERLC_SERVER_NAME=
-ERLC_SERVER_OWNER=
+ERLC_SERVER_NAME=New York City Roleplay
+ERLC_SERVER_OWNER=Dm0ney_4u
 ERLC_JOIN_CODE=
 ERLC_JOIN_URL=
 ```
 
-Existing `PUBLIC_ERLC_JOIN_CODE` and `PUBLIC_ERLC_JOIN_URL` remain supported. Join URLs must be HTTPS `erlc.gg/join/CODE` destinations; a configured code produces that destination automatically. Without a valid URL, Quick Join privately displays the configured code and private-server instructions. Missing names/owner/code are clearly marked **Not configured**. The API server key remains only in the existing private backend `ERLC_SERVER_API_KEY`; never paste it into a public display field.
+Existing `PUBLIC_ERLC_JOIN_CODE` and `PUBLIC_ERLC_JOIN_URL` remain supported. Join URLs must be HTTPS `erlc.gg/join/CODE` destinations; a configured code produces that destination automatically. Without a valid URL, Quick Join privately displays the configured code and private-server instructions. The configured public defaults are New York City Roleplay and Dm0ney_4u; environment values can override them. A missing join code is clearly marked **Not configured**. The API server key remains only in the existing private backend `ERLC_SERVER_API_KEY`; never paste it into a public display field.
 
 The supplied Sessions banner is copied unchanged to `assets/sessions/main-banner.png`. The supplied matching footer is `divider.png`, and the existing supplied NYC emblem is `logo.png`. Optional `vote-banner.png`, `started-banner.png`, `low-banner.png`, and `shutdown-banner.png` override the main banner. Missing stage banners use the supplied main image. Configured HTTPS image URLs are also supported. Replace artwork and restart to refresh it. Routine panel/button edits reuse Discord media references to avoid uploading artwork every minute.
 
@@ -61,7 +61,7 @@ States: Offline, Voting, Online, Low Activity, Shutting Down. Shutdown saves the
 
 This is a **single active bot runtime** architecture using the existing startup lock. Do not run independent bot replicas against the same database/token. Exactly-once delivery cannot be guaranteed if another administrator deletes both an unreceipted Discord message and its recovery evidence during a crash. Database state changes remain transactional.
 
-The existing ER adapter supplies counts and keeps its shared cache, request coalescing, timeout and rate-limit/backoff handling. Session maintenance refreshes once per minute. Player count/capacity/queue/staff are shown only when genuinely available; staff requires a complete permission-bearing player list. Failures and stale data show **Unavailable**, never invented zeroes. Session state is staff-controlled and independent of live population.
+The existing ER adapter supplies counts and keeps its shared cache, request coalescing, timeout and rate-limit/backoff handling. Session maintenance refreshes once per minute. Player count/capacity/queue/staff are shown only when genuinely available; staff requires a complete permission-bearing player list. Failures and stale data show **Unavailable**, never invented zeroes. Session state is staff-controlled and independent of live population. With no active session (including voting), the bot presence is Idle with **💤Sleeping**. Online and Low Activity sessions switch it to Online with the actual player count/capacity, refreshed every minute. Failed or stale telemetry shows **In-game player count unavailable**. Presence is also updated immediately on lifecycle actions, with unchanged broadcasts skipped.
 
 The shared ER response validator now accepts an omitted emergency-call caller. Incomplete calls are excluded from CAD incident import rather than inventing an identity or rejecting all live telemetry. Existing complete call handling is unchanged. No remote game command is issued by session start/low/shutdown.
 
@@ -69,7 +69,7 @@ Logs record lifecycle actions, threshold notifications, repairs and errors, incl
 
 ## Files and verification
 
-New session modules: `config/sessions.js`, `apps/bot/src/session-hub/{model,repository,views,commands,index}.js`, the session migration/models, supplied `assets/sessions/`, `scripts/session-check.ts`, and `tests/session-hub.test.ts`.
+New session modules: `config/sessions.js`, `apps/bot/src/session-hub/{model,repository,views,commands,presence,index}.js`, the session migration/models, supplied `assets/sessions/`, `scripts/session-check.ts`, and `tests/session-hub.test.ts`.
 
 Integration edits: `apps/bot/src/main.ts` routes new session interactions before generic acknowledgment and registers the new command set; `service.js` holds its coordinator; `community.ts` delegates its existing live-panel entry point; `apps/api/src/jobs.ts` stops legacy session rendering/recovery/vote timers from competing while preserving attendance and unrelated jobs; `apps/api/src/main.ts` gracefully drains it on shutdown. `erlc.ts` contains the optional-caller compatibility fix. `.env.example` and `package.json` document public display settings and diagnostics.
 

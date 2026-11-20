@@ -1,16 +1,17 @@
 import fs from 'node:fs';
+import { sessionConfig } from '../../../../config/sessions.js';
 import { label } from './model.js';
 const text = content => ({ type: 10, content });
 const separator = () => ({ type: 14, spacing: 1 });
 export const button = (custom_id, label, style = 2, disabled = false) => ({ type: 2, custom_id, label, style, disabled });
 export const row = (...components) => ({ type: 1, components });
-export const safe = value => String(value ?? 'Not configured').replace(/[@`*_~<>]/g, '').slice(0, 200);
+export const safe = value => String(value ?? 'Not configured').replace(/[@`*~<>]/g, '').slice(0, 200).replace(/_/g, '\\_');
 export function serverInfo(env = process.env) {
   const code = env.ERLC_JOIN_CODE || env.PUBLIC_ERLC_JOIN_CODE || '';
   let url = env.ERLC_JOIN_URL || env.PUBLIC_ERLC_JOIN_URL || '';
   if (!url && /^[\w-]{1,64}$/.test(code)) url = 'https://erlc.gg/join/' + encodeURIComponent(code);
   try { const u = new URL(url); if (u.protocol !== 'https:' || u.hostname !== 'erlc.gg' || !/^\/join\/[\w-]{1,64}\/?$/.test(u.pathname) || u.search || u.hash || u.username || u.password || u.port) url = ''; } catch { url = ''; }
-  return { name: env.ERLC_SERVER_NAME || '', owner: env.ERLC_SERVER_OWNER || '', code, url };
+  return { name: env.ERLC_SERVER_NAME || sessionConfig.server.name, owner: env.ERLC_SERVER_OWNER || sessionConfig.server.owner, code, url };
 }
 export const joinButton = info => info.url ? { type: 2, style: 5, label: 'Quick Join', url: info.url } : button('nycs:join', 'Quick Join');
 export function layout(config, title, body, controls = [], kind = 'main', key = 'panel', ephemeral = false) {

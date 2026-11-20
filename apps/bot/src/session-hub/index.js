@@ -4,6 +4,7 @@ import { db } from '../../../../packages/shared/src/database.js';
 import { sessionConfig } from '../../../../config/sessions.js';
 import { SessionRepository } from './repository.js';
 import { initialState, label } from './model.js';
+import { sessionPresence } from './presence.js';
 import { serverInfo, panelView, voteView, announcement, logView, layout, row, button, safe, statistics } from './views.js';
 export { sessionCommands } from './commands.js';
 const missing = error => error?.code === 10008;
@@ -91,6 +92,10 @@ export class Sessions {
   }
   async syncCompatibility() {
     const state = await this.repository.read(), g = this.service.store.guild(this.config.guildId);
+    const presence = sessionPresence(state), signature = JSON.stringify(presence);
+    if (this.client.user?.setPresence && signature !== this.lastPresence) {
+      this.client.user.setPresence(presence); this.lastPresence = signature;
+    }
     if (state.current) {
       let s = g.sessions.find(s => s.id === state.current.id);
       if (!s) { s = { id: state.current.id, host: state.current.hostId, start: state.current.startedAt, peak: 0, participants: [], channel: this.config.channels.announcements }; g.sessions.push(s); }
