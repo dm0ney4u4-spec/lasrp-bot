@@ -442,3 +442,25 @@ model CadAccessDelivery {
  createdAt DateTime @default(now())
  @@index([status,nextAttemptAt])
 }
+
+// Durable session state and delivery receipts; existing history remains intact.
+model SessionHub {
+  guildId String @id
+  version Int @default(1)
+  data Json
+  updatedAt DateTime @default(now())
+  events SessionHubEvent[]
+}
+model SessionHubEvent {
+  id String @id
+  guildId String
+  hub SessionHub @relation(fields: [guildId], references: [guildId])
+  kind String
+  actorId String
+  createdAt DateTime @default(now())
+  data Json
+  announcementMessageId String?
+  logMessageId String?
+  complete Boolean @default(false)
+  @@index([guildId, complete, createdAt], map: "SessionHubEvent_pending")
+}

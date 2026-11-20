@@ -10,7 +10,7 @@ import {assistancePanel as ticketPanel} from './ticket-system/assistance-views.j
 export const id = () => randomUUID().slice(0, 8);
 const stamp = time => `<t:${Math.floor(time / 1000)}:f>`;
 export class CommunityService {
-  constructor(client, store) { this.client = client; this.store = store; this.ticketSystem = null; }
+  constructor(client, store) { this.client = client; this.store = store; this.ticketSystem = null; this.sessionHub = null; }
   template(g, key) { const t = g.templates[key] ?? seeds[key]; if (!t) throw Error('Unknown template'); return t; }
   variables(g, member) {
     const c = g.config, s = g.sessions.at(-1), uid = member?.id;

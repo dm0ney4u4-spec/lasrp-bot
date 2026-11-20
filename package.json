@@ -39,7 +39,8 @@
         "doctor": "tsx scripts/doctor.ts",
         "discover": "tsx scripts/discover-discord.ts",
         "stop": "tsx scripts/stop.ts",
-        "discord:doctor": "tsx scripts/diagnose-discord.ts"
+        "discord:doctor": "tsx scripts/diagnose-discord.ts",
+        "session:check": "tsx scripts/session-check.ts"
     },
     "dependencies": {
         "@prisma/client": "6.12.0",

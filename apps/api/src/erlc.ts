@@ -1,6 +1,6 @@
 import { z } from 'zod';
 const player=z.object({Player:z.string(),Team:z.string().optional(),Permission:z.string().optional(),Callsign:z.string().nullable().optional(),Location:z.object({LocationX:z.number(),LocationZ:z.number(),PostalCode:z.string().optional(),StreetName:z.string().optional()}).nullable().optional()}).passthrough();
-export const snapshotSchema=z.object({Name:z.string(),CurrentPlayers:z.number().int().nonnegative(),MaxPlayers:z.number().int().positive(),Players:z.array(player).optional(),Queue:z.array(z.number()).optional(),Vehicles:z.array(z.unknown()).optional(),EmergencyCalls:z.array(z.object({CallNumber:z.number(),StartedAt:z.number(),Description:z.string(),PositionDescriptor:z.string(),Position:z.array(z.number()).optional(),Caller:z.number(),Team:z.string().optional()}).passthrough()).optional()}).passthrough();
+export const snapshotSchema=z.object({Name:z.string(),CurrentPlayers:z.number().int().nonnegative(),MaxPlayers:z.number().int().positive(),Players:z.array(player).optional(),Queue:z.array(z.number()).optional(),Vehicles:z.array(z.unknown()).optional(),EmergencyCalls:z.array(z.object({CallNumber:z.number(),StartedAt:z.number(),Description:z.string(),PositionDescriptor:z.string(),Position:z.array(z.number()).optional(),Caller:z.number().optional(),Team:z.string().optional()}).passthrough()).optional()}).passthrough();
 export type Snapshot=z.infer<typeof snapshotSchema>;
 export class ErlcAdapter {
  cooldownUntil=0;disabled=false;lastCommand=0;last?:{data:Snapshot;at:number};

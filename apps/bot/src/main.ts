@@ -18,7 +18,7 @@ import { Tickets } from './tickets.js';
 import {AssistanceSystem} from './ticket-system/assistance.js';
 import {ticketCommands} from './ticket-system/assistance-commands.js';
 import {GlobalBans} from './global-bans.js';
-import { Sessions,sessionCommands } from './sessions.js';
+import { Sessions,sessionCommands } from './session-hub/index.js';
 import { staffCommand,staffAction } from './staff.js';
 import { render,notice,button } from './panels.js';
 import { editReply } from './replies.js';
@@ -61,7 +61,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
  seeds.cad={key:'cad',title:'NYCRP CAD',color:'blue',sections:['New York City Roleplay CAD and MDT for dispatch, responders, and civilians. Discord sign-in does not grant admission: submit a CAD access application and wait for explicit approval.','**CAD:** {cad_url}\nThe current localhost address works only on the hosting computer. Community-wide access requires a public HTTPS host; this panel will use WEB_BASE_URL after hosting is configured.\nCreate fictional characters and vehicles, submit calls, and access department records according to your assigned role.'],buttons:[button('Launch CAD','web','cad'),button('Create Civilian Profile','web','civilian'),button('Help','panel','help')]};
  const originalVars=service.variables.bind(service);service.variables=(g:any,member?:any)=>({...originalVars(g,member),community:ids.settings.community,cad_url:process.env.WEB_BASE_URL??'http://localhost:3000',recruitment_status:applications.settings().open?'OPEN':'CLOSED',application_requirements:applications.settings().requirements});
  const principal=async(userId:string):Promise<Principal>=>applications.principal(userId);
- const sessions=new Sessions(client,service,principal);
+ const sessions=new Sessions(client,service,erlc);service.sessionHub=sessions;
  const management=async(userId:string)=>{const p=await principal(userId);if(!allowed(p,'management'))throw Error('Management access required');return p;};
  const locks=new Set<string>();
  client.on(Events.InteractionCreate,async i=>{
@@ -71,17 +71,16 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
    // Run before generic handlers, role lookups, or database access for unrelated features.
    if(await liveries.interaction(i))return;
    if(await ticketSystem.interaction(i))return;
+   if(await sessions.interaction(i))return;
    i=await acknowledgeInteraction(i);
    if(await regulationsInteraction(i))return;
    if(await departmentInteraction(i))return;
    if(await applications.interaction(i))return;
    if(await tickets.interaction(i))return;
-   if(await sessions.interaction(i))return;
    if(i.isChatInputCommand()){
     if(['moderate','case'].includes(i.commandName)){const p=await principal(i.user.id);if(!p.roles.some(role=>ids.commandPolicy.moderationRoles.includes(role)))throw Error('Configured moderation role required');}
     if(i.commandName==='panic'){const p=await principal(i.user.id),unit=await db.unit.findUniqueOrThrow({where:{userId:i.user.id}});await i.deferReply({flags:64});const result=await signalPanic(p,{version:unit.version,reason:i.options.getString('reason',true)});await editReply(i,notice('Unit emergency sent',String(result.recipientCount)+' on-duty recipients were notified in CAD. This does not contact real emergency services.'));return;}
     if(i.commandName==='staff'){await staffAction(service,i,await principal(i.user.id));return;}
-    if(['ssu','ssd','session'].includes(i.commandName)){await sessions.command(i);return;}
     if(i.commandName==='security'){
      const p=await principal(i.user.id),g=store.guild(ids.guildId),action=i.options.getSubcommand();
      if(action==='automod'){if(!allowed(p,'management'))throw Error('Management access required');await i.deferReply({flags:64});const result=await syncAutomod(await client.guilds.fetch(ids.guildId),i.user.id);await i.editReply(notice('AutoMod synchronized',result.map(r=>r.name+': '+(r.enabled?'enabled':'disabled')).join('\n')));return;}
@@ -112,7 +111,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
      else container.addActionRowComponents(new ActionRowBuilder<ChannelSelectMenuBuilder>().addComponents(new ChannelSelectMenuBuilder().setCustomId(`ls:setupBind:${setting}`)));
      await i.reply({...payload,components:[container]});return;
     }
-    if(i.commandName==='help'){const p=await principal(i.user.id);await i.reply(notice('NYCRP Operations | Help',`**Members:** Applications: <#${ids.channels.applicationsPanel}>. CAD: <#${ids.channels.cadPanel}>. /applications status\n${allowed(p,'host','moderator')?'**Operations:** /ssu, /ssd, /session vote, /session boost, /moderate\n':''}${allowed(p,'management')?'**Management:** /setup, /panel deploy, /staff, /case, /security, /applications open or close\n':''}**CAD:** ${process.env.WEB_BASE_URL??'http://localhost:3000'}\nOnly registered commands are available.`));return;}
+    if(i.commandName==='help'){const p=await principal(i.user.id);await i.reply(notice('NYCRP Operations | Help',`**Members:** Applications: <#${ids.channels.applicationsPanel}>. CAD: <#${ids.channels.cadPanel}>. /applications status\n${allowed(p,'host','moderator')?'**Operations:** /session start, /session shutdown, /session vote, /session low, /moderate\n':''}${allowed(p,'management')?'**Management:** /setup, /panel deploy, /staff, /case, /security, /applications open or close\n':''}**CAD:** ${process.env.WEB_BASE_URL??'http://localhost:3000'}\nOnly registered commands are available.`));return;}
     if(i.commandName==='cad'){if(i.user.id!==i.guild!.ownerId)throw Error('Only the server owner can deploy the CAD panel');await deploy(i,service,'cad');return;}
     if(i.commandName==='erlc'){
      const p=await principal(i.user.id);if(!allowed(p,'moderator','host','dispatcher'))throw Error('Operational access required');await i.deferReply({flags:64});const action=i.options.getSubcommand();
@@ -142,7 +141,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
  });
  client.on(Events.GuildMemberAdd,async member=>{if(member.guild.id!==ids.guildId)return;const g=store.guild(ids.guildId);if(!g.config.welcomeChannel)return;try{const channel=await member.guild.channels.fetch(g.config.welcomeChannel);if(channel?.isTextBased()&&'send'in channel)await channel.send(service.panel(g,'welcome',member));}catch{console.error('Welcome delivery failed.');}});
  client.on(Events.Error,()=>console.error('Discord connection reported an error.'));
- return {client,service,applications,ticketSystem,globalBans,bootstrap:async()=>{await bootstrapCommunity(service);try{await applications.compactExistingReviews();}catch{console.error('Existing application review compaction needs attention.');}}};
+ return {client,service,applications,ticketSystem,globalBans,sessionHub:sessions,bootstrap:async()=>{await bootstrapCommunity(service);try{await applications.compactExistingReviews();}catch{console.error('Existing application review compaction needs attention.');}}};
 }
 async function deploy(i:ChatInputCommandInteraction,service:CommunityService,key:string){
  await i.deferReply({flags:64});if(key==='cad'&&i.user.id!==i.guild!.ownerId)throw Error('Only the server owner can deploy the CAD panel');const channelId=key==='cad'?ids.channels.cadPanel:key==='applications'?ids.channels.applicationsPanel:key==='departments'?ids.channels.departments:key==='community_rules'?ids.channels.rules:i.channelId;const g=service.store.guild(i.guildId!),old=Object.values(g.published).find((p:any)=>p.key===key&&p.channel===channelId) as {id:string}|undefined;const publication=await service.publish(i.guildId!,channelId,key,i.user.id,{},old?.id);await editReply(i,notice('Panel ready',`**${key}** published as message ${publication.message}. Repeating this command updates the existing panel.`));
