@@ -1,6 +1,6 @@
 # NYCRP Operations · NYCRP CAD
 
-The **New York Automation ticket system** setup, exact IDs, commands, permissions, transcripts and recovery instructions are in [docs/TICKET_SYSTEM.md](docs/TICKET_SYSTEM.md).
+The current **NYCRP Assistance System** upgrade, supplied cream/white branding, staff controls and administrator-only transcripts are documented in [docs/ASSISTANCE_SYSTEM.md](docs/ASSISTANCE_SYSTEM.md). This supersedes the earlier ticket setup guide.
 
 The role-restricted **`-gb @user reason`** command and its five-server setup are documented in [docs/GLOBAL_BANS.md](docs/GLOBAL_BANS.md).
 

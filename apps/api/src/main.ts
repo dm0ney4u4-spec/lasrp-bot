@@ -12,6 +12,7 @@ import { db,events,audit,changed } from '../../../packages/shared/src/database.j
 import { DatabaseStore } from '../../../packages/shared/src/store.js';
 import { demand,allowed } from '../../../packages/shared/src/permissions.js';
 import { configureAuth,sessionUser } from './auth.js';
+import {configureAssistanceTranscripts} from './assistance-transcripts.js';
 import {configurePublicErlc} from './public-erlc.js';
 import {configureWebsiteWorkspace} from './website-workspace.js';
 import { configureCad } from './cad.js';
@@ -44,6 +45,7 @@ app.use('/admin',dashboard(service,{...process.env,DISCORD_GUILD_ID:ids.guildId,
 // Explicitly sanitized public read route must precede the existing /api authentication gate.
 configurePublicErlc(app,erlc,{sessions:async()=>{const rows=await db.scheduledSession.findMany({where:{guildId:ids.guildId,status:'scheduled',startsAt:{gte:new Date()}},orderBy:{startsAt:'asc'},take:5,select:{startsAt:true}});return rows.map(row=>({startsAt:row.startsAt.toISOString(),status:'scheduled' as const,announcementUrl:`https://discord.com/channels/${ids.guildId}/${ids.channels.sessions}`}));}});
 configureAuth(app,client);
+configureAssistanceTranscripts(app,ticketSystem,client);
 configureWebsiteWorkspace(app);
 configureCadAccess(app);
 configureCad(app,service);
@@ -60,6 +62,7 @@ app.post('/api/applications/:id/submit',async(req,res)=>{
 });
 app.post('/api/applications/:id/review',async(req,res)=>{demand(req.principal,'reviewer');const body=z.object({version:z.number().int().positive(),action:z.enum(['accept','deny','interview','more_info','note']),reason:z.string().min(3).max(1500)}).strict().parse(req.body);const application=await db.application.findUniqueOrThrow({where:{id:String(req.params.id)}});if(application.version!==body.version)throw Error('Application changed; refresh before reviewing');res.json(await applications.review(application,req.principal.id,body.action,body.reason));});
 app.get('/api/transcripts/:id',async(req,res)=>{
+ if(!(await ticketSystem.actor(req.principal.id)).administrator)return res.status(403).json({error:'Discord Administrator permission is required to access transcripts.'});
  const record=await db.ticketTranscript.findUniqueOrThrow({where:{id:String(req.params.id)}});if(record.expiresAt.getTime()<Date.now())throw Error('Transcript retention period ended');const ticket=store.guild(record.guildId).tickets[record.id];if(ticket?.accusedId===req.principal.id)throw Object.assign(Error('Transcript conflict restriction'),{status:403});if(record.openerId!==req.principal.id&&!allowed(req.principal,'management')&&!((record.staffIds as string[]).includes(req.principal.id)&&allowed(req.principal,'support')))throw Object.assign(Error('Transcript access denied'),{status:403});await audit(req.principal.id,'transcript.read',record.id,null,{});res.set({'Content-Type':'text/plain; charset=utf-8','Content-Disposition':`attachment; filename="NYCRP-ticket-${record.id.replace(/[^a-zA-Z0-9_-]/g,'')}.txt"`}).send(record.text);
 });
 app.get('/api/telemetry',requireCadAdmission,async(req,res)=>{demand(req.principal,'dispatcher','police','sheriff','fire','ems','dot');const g=store.guild(ids.guildId||'DEMO_GUILD');res.json(g.live??{healthy:false,synced:null,players:[],source:'No telemetry received'});});

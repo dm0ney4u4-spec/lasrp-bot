@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { Client, GatewayIntentBits, Events } from 'discord.js';
-import { TicketSystem } from '../apps/bot/src/ticket-system/service.js';
+import { AssistanceSystem as TicketSystem } from '../apps/bot/src/ticket-system/assistance.js';
 import { ticketConfig } from '../config/tickets.js';
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 const tickets = new TicketSystem(client);

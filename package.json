@@ -21,6 +21,8 @@
         "ticket:publish": "tsx scripts/ticket-panel.ts --publish",
         "ticket:test": "tsx --test tests/tickets-advanced.test.ts",
         "global-ban:diagnose": "tsx scripts/global-ban-diagnose.ts",
+        "assistance:check": "tsx scripts/assistance-setup.ts",
+        "assistance:setup": "tsx scripts/assistance-setup.ts --secure-logs --migrate-transcripts --publish --avatar",
         "build": "tsc --noEmit && npm run web:build",
         "web:build": "esbuild apps/web/src/app.ts --bundle --format=esm --target=es2022 --outfile=apps/web/public/cad.js",
         "check": "tsc --noEmit",

@@ -1,0 +1,14 @@
+import { SlashCommandBuilder, ChannelType } from 'discord.js';
+const ticket = new SlashCommandBuilder().setName('ticket').setDescription('New York City Roleplay assistance').setDMPermission(false);
+const number = command => command.addIntegerOption(o => o.setName('number').setDescription('Ticket number; defaults to the current channel').setMinValue(1));
+ticket.addSubcommand(c => c.setName('panel').setDescription('Administrator: publish or refresh the Assistance panel').addChannelOption(o => o.setName('channel').setDescription('Destination text channel').addChannelTypes(ChannelType.GuildText)));
+for (const [name, description] of [['control', 'Open the private staff control panel'], ['claim', 'Claim this ticket'], ['unclaim', 'Unclaim this ticket'], ['transcript', 'Administrator: generate or view a secure transcript'], ['repair', 'Administrator: repair channel permissions and controls']])
+    ticket.addSubcommand(c => number(c.setName(name).setDescription(description)));
+for (const name of ['add', 'remove', 'transfer'])
+    ticket.addSubcommand(c => number(c.setName(name).setDescription(name === 'transfer' ? 'Transfer to an eligible support handler' : name === 'add' ? 'Add a participant' : 'Remove an added participant').addUserOption(o => o.setName('member').setDescription('Discord member').setRequired(true))));
+for (const name of ['close', 'escalate'])
+    ticket.addSubcommand(c => number(c.setName(name).setDescription(name === 'close' ? 'Close safely with a required reason' : 'Escalate to the configured senior support team').addStringOption(o => o.setName('reason').setDescription('Required reason').setRequired(true).setMinLength(1).setMaxLength(1000))));
+ticket.addSubcommand(c => number(c.setName('priority').setDescription('Change ticket priority').addStringOption(o => o.setName('value').setDescription('Priority').setRequired(true).addChoices(...['low', 'normal', 'high', 'urgent'].map(value => ({ name: value, value }))))));
+ticket.addSubcommand(c => c.setName('stats').setDescription('View statistics for your authorized support categories'));
+ticket.addSubcommand(c => c.setName('config').setDescription('Administrator: view or update assistance routing').addStringOption(o => o.setName('type').setDescription('Ticket type to update').addChoices(...[['General Support', 'general'], ['Staff Reports', 'staff_report'], ['Purchase Support', 'purchase'], ['Punishment Appeals', 'appeal'], ['Escalated', 'escalated']].map(([name, value]) => ({ name, value })))).addRoleOption(o => o.setName('support-role').setDescription('New support role for this ticket type')).addChannelOption(o => o.setName('category').setDescription('New Discord category').addChannelTypes(ChannelType.GuildCategory)));
+export const ticketCommands = [ticket, new SlashCommandBuilder().setName('mytickets').setDescription('View your own assistance ticket statuses').setDMPermission(false)];

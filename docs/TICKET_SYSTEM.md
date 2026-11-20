@@ -1,5 +1,7 @@
 # New York Automation — ticket system
 
+**Superseded November 19, 2026:** use [ASSISTANCE_SYSTEM.md](ASSISTANCE_SYSTEM.md) for current routing, commands, one-ticket limit, staff-only closure and administrator-only transcript policy. The content below describes the previous implementation for historical reference.
+
 This module runs inside the existing Discord bot. It adds no second bot, web login, or PostgreSQL replacement. The CAD, staff applications and ER tracking keep their existing database and permissions. New tickets use a separate SQLite WAL database; existing legacy ticket records and controls remain available. Old ticket creation menus direct members to the new three-category panel.
 
 ## Windows setup

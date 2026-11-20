@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
 import { ChannelType, PermissionFlagsBits, GatewayIntentBits, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, MessageFlags, Routes } from 'discord.js';
-import { ticketConfig } from '../../../../config/tickets.js';
+import { legacyTicketConfig as ticketConfig } from '../../../../config/tickets.js';
 import { TicketRepository, TicketError } from './database.js';
 import { actorFromMember, authorize, categoryFor, isAdministrator, canManage, nextEscalation, permissionOverwrites } from './permissions.js';
 import { ticketPanel, ticketCard, privateNotice, confirmationCard, closureSummary, transcriptDm, ticketNumber, closeRequestCard } from './views.js';
@@ -473,7 +473,7 @@ export class TicketSystem {
             throw new TicketError('The ticket channel is missing before its transcript was logged. Metadata was retained.', 'CHANNEL_MISSING_BEFORE_LOG');
         if (channel) {
             await this.sendPending(ticket, channel, token);
-            await channel.permissionOverwrites.set(permissionOverwrites(ticket, this.client.user.id, this.config.guildId, this.config, { closing: true }), 'Freeze ticket during safe transcript closure');
+            await channel.permissionOverwrites.set(this.closeOverwrites(ticket), 'Freeze ticket during safe transcript closure');
             await this.syncCard(ticket, channel, token);
         }
         if (!ticket.transcript) {
@@ -485,6 +485,8 @@ export class TicketSystem {
         await verifyParts(ticket.transcript.parts);
         heartbeat();
         const category = categoryFor(this.config, ticket.category), batches = [];
+        if(this.config.secureTranscripts)batches.push([]);
+        else
         for (let i = 0; i < ticket.transcript.parts.length; i += 10)
             batches.push(ticket.transcript.parts.slice(i, i + 10));
         if (delivery.log_status !== 'sent') {
@@ -496,7 +498,7 @@ export class TicketSystem {
                 if (delivery.logMessageIds[i])
                     continue;
                 const value = marker(ticket.id, 'log', i), found = await this.findMessage(log, value, ticket.closure.startedAt - 60000);
-                const sent = found ?? await log.send(addMarker(closureSummary(ticket, category, batches[i], { continuation: i !== batches.length - 1 }), value));
+                const sent = found ?? await log.send(addMarker(this.closureLogPayload(ticket, category, batches[i], { continuation: i !== batches.length - 1 }), value));
                 const ids = [...delivery.logMessageIds];
                 ids[i] = sent.id;
                 this.repo.updateDelivery(ticket.id, { logMessageIds: ids, ...(i === batches.length - 1 ? { summaryId: sent.id } : {}) });
@@ -506,7 +508,8 @@ export class TicketSystem {
         delivery = this.repo.delivery(ticket.id);
         if (delivery.log_status !== 'sent' || !delivery.summary_id)
             throw new TicketError('Transcript log delivery is not confirmed.');
-        if (!['sent', 'blocked', 'failed', 'uncertain'].includes(delivery.dm_status)) {
+        if(this.config.dmUponClosure===false){this.repo.updateDelivery(ticket.id,{dmStatus:'skipped'});delivery=this.repo.delivery(ticket.id);}
+        if (!['sent', 'blocked', 'failed', 'uncertain','skipped'].includes(delivery.dm_status)) {
             // Mark first: an interrupted unknown DM result is never blindly sent twice.
             const interrupted = delivery.dm_status === 'sending';
             this.repo.updateDelivery(ticket.id, { dmStatus: interrupted ? 'uncertain' : 'sending', dmAttemptedAt: delivery.dm_attempted_at ?? Date.now() });
@@ -518,7 +521,7 @@ export class TicketSystem {
                         delivery = this.repo.delivery(ticket.id);
                         if (delivery.dmMessageIds[i])
                             continue;
-                        const sent = await user.send(addMarker(transcriptDm(ticket, category, batches[i], i > 0), marker(ticket.id, 'dm', i)));
+                        const sent = await user.send(addMarker(this.closureDmPayload(ticket, category, batches[i], i > 0), marker(ticket.id, 'dm', i)));
                         const ids = [...delivery.dmMessageIds];
                         ids[i] = sent.id;
                         this.repo.updateDelivery(ticket.id, { dmMessageIds: ids });
@@ -532,7 +535,7 @@ export class TicketSystem {
         }
         heartbeat();
         ticket = this.repo.update(ticket.id, { closure: { ...ticket.closure, stage: 'deleting' } }, ticket.closure.actorId, null, {}, token);
-        if (channel)
+        if (channel&&this.config.deleteClosedTickets!==false)
             try {
                 await channel.delete('Ticket transcript safely delivered to private logs');
             }
@@ -542,6 +545,9 @@ export class TicketSystem {
             }
         return this.repo.update(ticket.id, { lifecycle: 'CLOSED', active: false, closedAt: Date.now(), errorCode: null, closure: { ...ticket.closure, stage: 'complete' } }, ticket.closure.actorId, 'closed', {}, token);
     }
+    closeOverwrites(ticket){return permissionOverwrites(ticket,this.client.user.id,this.config.guildId,this.config,{closing:true});}
+    closureLogPayload(ticket,category,parts,options){return closureSummary(ticket,category,parts,options);}
+    closureDmPayload(ticket,category,parts,continuation){return transcriptDm(ticket,category,parts,continuation);}
     async repair(ticket, actor) {
         authorize(ticket, actor, 'repair', this.config);
         this.assertOpen(ticket);

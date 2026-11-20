@@ -16,6 +16,7 @@ export class TicketRepository {
         if (filename !== ':memory:')
             fs.mkdirSync(path.dirname(path.resolve(filename)), { recursive: true });
         this.db = new DatabaseSync(filename);
+        if(filename!==':memory:')fs.chmodSync(filename,0o600);
         this.db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');
         this.migrate();
     }
@@ -63,6 +64,7 @@ export class TicketRepository {
     activeFor(guildId, creatorId, category) {
         return this.decode(this.db.prepare('SELECT * FROM tickets WHERE guild_id=? AND creator_id=? AND category=? AND active=1').get(guildId, creatorId, category));
     }
+    activeForMember(guildId,creatorId){return this.decode(this.db.prepare('SELECT * FROM tickets WHERE guild_id=? AND creator_id=? AND active=1 ORDER BY number LIMIT 1').get(guildId,creatorId));}
     listActive(guildId) {
         return this.db.prepare("SELECT * FROM tickets WHERE guild_id=? AND (active=1 OR lifecycle='CLOSING') ORDER BY number").all(guildId).map(row => this.decode(row));
     }
@@ -74,13 +76,13 @@ export class TicketRepository {
     }
     reserve(input) {
         return this.transaction(() => {
-            const existing = this.activeFor(input.guildId, input.creatorId, input.category);
+            const existing = input.singleActive?this.activeForMember(input.guildId,input.creatorId):this.activeFor(input.guildId, input.creatorId, input.category);
             if (existing)
                 return { ticket: existing, created: false };
             this.db.prepare('INSERT OR IGNORE INTO ticket_counters(guild_id,last_number) VALUES(?,?)').run(input.guildId, Math.max(0, this.startingNumber - 1));
             const { last_number: number } = this.db.prepare('UPDATE ticket_counters SET last_number=last_number+1 WHERE guild_id=? RETURNING last_number').get(input.guildId);
-            const id = randomUUID(), data = { ...input, createdAt: Date.now(), panelMessageId: null, openingPingId: null, escalatedRoles: [], escalatedCategories: [], nameSyncPending: true, panelSyncPending: true, errorCode: null, closure: null };
-            this.db.prepare("INSERT INTO tickets(id,guild_id,number,creator_id,category,lifecycle,data) VALUES(?,?,?,?,?,'CREATING',?)").run(id, input.guildId, number, input.creatorId, input.category, JSON.stringify(data));
+            const id = randomUUID(), data = { ...input, createdAt: input.createdAt??Date.now(), panelMessageId: null, openingPingId: null, escalatedRoles: [], escalatedCategories: [], nameSyncPending: true, panelSyncPending: true, errorCode: null, closure: null };
+            this.db.prepare("INSERT INTO tickets(id,guild_id,number,creator_id,category,channel_id,lifecycle,active,data) VALUES(?,?,?,?,?,?,?,?,?)").run(id, input.guildId, number, input.creatorId, input.category,input.channelId??null,input.initialLifecycle??'CREATING',input.initialActive===false?0:1, JSON.stringify(data));
             this.db.prepare('INSERT INTO transcript_deliveries(ticket_id) VALUES(?)').run(id);
             this.event(id, 'creation_reserved', input.creatorId, { number, category: input.category });
             return { ticket: this.get(id), created: true };
@@ -116,7 +118,7 @@ export class TicketRepository {
                 throw new TicketError('Another ticket update is in progress.', 'TICKET_BUSY');
             const delta = typeof changes === 'function' ? changes(old) : changes;
             const next = { ...old, ...delta };
-            const result = this.db.prepare('UPDATE tickets SET channel_id=?,lifecycle=?,active=?,claimant_id=?,escalation_level=?,version=version+1,data=? WHERE id=? AND version=?').run(next.channelId ?? null, next.lifecycle, next.active ? 1 : 0, next.claimantId ?? null, next.escalationLevel ?? 0, JSON.stringify(next), id, old.version);
+            const result = this.db.prepare('UPDATE tickets SET category=?,channel_id=?,lifecycle=?,active=?,claimant_id=?,escalation_level=?,version=version+1,data=? WHERE id=? AND version=?').run(next.category,next.channelId ?? null, next.lifecycle, next.active ? 1 : 0, next.claimantId ?? null, next.escalationLevel ?? 0, JSON.stringify(next), id, old.version);
             if (!result.changes)
                 throw new TicketError('This ticket changed. Refresh before trying again.');
             if (type)

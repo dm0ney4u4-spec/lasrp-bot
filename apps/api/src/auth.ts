@@ -10,6 +10,7 @@ export interface DiscordProfile {username:string;avatarUrl:string|null;roles:{id
 declare global {namespace Express {interface Request {principal:Principal;csrf:string;sessionHash:string;discordProfile?:DiscordProfile}}}
 type AuthDatabase=Pick<typeof db,'webSession'|'user'|'guildState'>;
 const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
+export const transcriptReturnPath=(value:unknown)=>typeof value==='string'&&/^\/tickets\/transcripts\/[a-f0-9-]{36}(?:\/part\/[1-9]\d*)?$/.test(value)?value:null;
 const secret=()=>process.env.APP_SESSION_SECRET??'';
 export function authOrigins(){
  const read=(value:string)=>{const u=new URL(value);if(u.username||u.password||u.pathname!=='/'||u.search||u.hash||!['http:','https:'].includes(u.protocol))throw Error('Authentication URLs must be origins without paths or credentials');if(u.protocol!=='https:'&&(process.env.NODE_ENV==='production'||!['localhost','127.0.0.1','[::1]'].includes(u.hostname)))throw Error('Authentication requires HTTPS outside local development');return u;};
@@ -37,11 +38,12 @@ export function configureAuth(app:Express,client:Client,dependencies:{database?:
  app.get('/auth/options',(_req,res)=>res.json({demo:demo(),discord:Boolean(client.isReady()&&ids.clientId&&process.env.DISCORD_OAUTH_CLIENT_SECRET),loginUrl:origins.backend+'/auth/discord?website=1',websiteOrigin:origins.website}));
  app.get('/auth/discord',(req,res)=>{
   const website=req.query.website==='1';
-  if(new URL(origins.backend).host!==req.headers.host)return res.redirect(origins.backend+'/auth/discord'+(website?'?website=1':''));
+  const returnTo=transcriptReturnPath(req.query.returnTo);
+  if(new URL(origins.backend).host!==req.headers.host){const query=new URLSearchParams({...website?{website:'1'}:{},...returnTo?{returnTo}:{}});return res.redirect(origins.backend+'/auth/discord'+(query.size?'?'+query.toString():''));}
   if(!client.isReady())return fail(res,'bot_offline',website);
   if(!ids.clientId||!process.env.DISCORD_OAUTH_CLIENT_SECRET)return fail(res,'not_configured',website);
   const state=randomBytes(24).toString('base64url'),verifier=randomBytes(32).toString('base64url');
-  const value=Buffer.from(JSON.stringify({state,verifier,expires:Date.now()+600000,website})).toString('base64url');
+  const value=Buffer.from(JSON.stringify({state,verifier,expires:Date.now()+600000,website,returnTo})).toString('base64url');
   cookie(res,'lasrp_oauth',value+'.'+createHmac('sha256',secret()).update(value).digest('base64url'),600);
   res.redirect('https://discord.com/oauth2/authorize?'+new URLSearchParams({client_id:ids.clientId,response_type:'code',redirect_uri:origins.backend+'/auth/callback',scope:'identify',state,code_challenge:createHash('sha256').update(verifier).digest('base64url'),code_challenge_method:'S256'}));
  });
@@ -65,7 +67,7 @@ export function configureAuth(app:Express,client:Client,dependencies:{database?:
    const user=await userResponse.json() as {id:string;username:string};if(!/^\d{17,20}$/.test(user.id)||typeof user.username!=='string')throw Error('Invalid Discord identity');
    const member=await(await client.guilds.fetch(ids.guildId)).members.fetch({user:user.id,force:true}).catch(()=>null);if(!member)return fail(res,'membership',website);
    await database.user.upsert({where:{id:user.id},create:{id:user.id,displayName:user.username},update:{displayName:user.username}});
-   await newSession(res,user.id,database);res.redirect(website?origins.website+'/member':'/');
+   await newSession(res,user.id,database);res.redirect(transcriptReturnPath(pending.returnTo)??(website?origins.website+'/member':'/'));
   }catch(error){cookie(res,'lasrp_oauth','',0);console.error('Discord sign-in failed:',error instanceof Error?error.name:'Unknown error');fail(res,'state',website);}
  });
  app.post('/auth/demo',async(req,res,next)=>{try{if(!demo()||!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.ip??''))return res.sendStatus(404);if(req.headers.origin!==origins.backend)return res.sendStatus(403);await database.user.upsert({where:{id:'DEMO_OWNER'},create:{id:'DEMO_OWNER',displayName:'DEMO Owner'},update:{}});await newSession(res,'DEMO_OWNER',database);res.json({ok:true});}catch(error){next(error);}});

@@ -5,7 +5,7 @@ import { seeds, ticketCategories, departments } from './seeds.js';
 import { render, notice, button, validateTemplate } from './panels.js';
 import { access, requireAccess, canViewCase } from './access.js';
 import { editReply } from './replies.js';
-import {ticketPanel} from './ticket-system/views.js';
+import {assistancePanel as ticketPanel} from './ticket-system/assistance-views.js';
 
 export const id = () => randomUUID().slice(0, 8);
 const stamp = time => `<t:${Math.floor(time / 1000)}:f>`;

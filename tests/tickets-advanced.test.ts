@@ -6,7 +6,7 @@ import path from 'node:path';
 import { Collection, ChannelType, MessageFlags, PermissionsBitField } from 'discord.js';
 import { TicketRepository } from '../apps/bot/src/ticket-system/database.js';
 import { TicketSystem } from '../apps/bot/src/ticket-system/service.js';
-import { ticketConfig } from '../config/tickets.js';
+import { legacyTicketConfig as ticketConfig } from '../config/tickets.js';
 import { authorize, permissionOverwrites, nextEscalation } from '../apps/bot/src/ticket-system/permissions.js';
 import { ticketPanel, ticketCard, closureSummary } from '../apps/bot/src/ticket-system/views.js';
 import { captureTranscript, verifyParts, safeUrl } from '../apps/bot/src/ticket-system/transcripts.js';

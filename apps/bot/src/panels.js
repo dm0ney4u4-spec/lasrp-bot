@@ -59,7 +59,7 @@ export function validatePayload(payload) {
     if (c.type === 10) length += c.content.length;
     if (c.custom_id) {
       const [namespace,action]=c.custom_id.split(':');
-      const valid=namespace==='nt'?['select','claim','unclaim','close','escalate','confirm','cancel','requestAccept','requestDecline'].includes(action):namespace==='ls'&&actions.has(action);
+      const valid=namespace==='na'?['support','choose','close','claim','unclaim','add','remove','transfer','escalate','priority','rename','respond','lock','unlock','info','answers','transcript','rate','score'].includes(action):namespace==='nt'?['select','claim','unclaim','close','escalate','confirm','cancel','requestAccept','requestDecline'].includes(action):namespace==='ls'&&actions.has(action);
       if (ids.has(c.custom_id) || c.custom_id.length > 100 || !valid) throw Error('Invalid or duplicate interaction');
       ids.add(c.custom_id);
     }

@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { Client, Events, GatewayIntentBits } from 'discord.js';
-import { TicketSystem } from '../apps/bot/src/ticket-system/service.js';
+import { AssistanceSystem as TicketSystem } from '../apps/bot/src/ticket-system/assistance.js';
 import { ticketConfig } from '../config/tickets.js';
 // Explicit operator-only test. Creates one real owner ticket and exercises the real delivery path.
 if (!process.argv.includes('--run'))
@@ -12,7 +12,7 @@ try {
     await client.login(process.env.DISCORD_BOT_TOKEN);
     await ready;
     await tickets.diagnose();
-    const guild = await client.guilds.fetch(ticketConfig.guildId), actor = await tickets.actor(guild.ownerId), user = await client.users.fetch(guild.ownerId);
+    const guild = await client.guilds.fetch(ticketConfig.guildId), actor = await tickets.actor(client.user!.id), user = await client.users.fetch(guild.ownerId);
     if (tickets.repo.activeFor(ticketConfig.guildId, user.id, 'general'))
         throw Error('Owner already has an active General Support ticket. Test stopped without altering it.');
     const ticket = await tickets.create('general', user, 'Controlled setup test: verify private ticket creation, claim, HTML transcript logging, and safe closure.');
