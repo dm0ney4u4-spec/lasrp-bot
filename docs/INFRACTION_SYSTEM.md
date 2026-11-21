@@ -29,11 +29,9 @@ Investigation preserves roles by default and blocks promotions. Configure `inves
 
 Role changes use individual additions/removals, saved operation progress, transactional claims, verified results and rollback/restart recovery. An uncertain operation blocks further staff changes and requires management to compare the saved snapshot with Discord before reconciling; no success is announced for unverified enforcement.
 
-## Evidence and privacy
+## Privacy
 
-Each root case gets an evidence thread under a restricted text parent dedicated to its issuer. Only the issuer and currently authorized reviewers/configured owners receive explicit access. Automated consequences share their root evidence. The bot refreshes parent permissions after enforcement and during maintenance. Discord Administrators inherently bypass channel overwrites; Discord cannot hide a channel from them.
-
-Messages, links and attachment metadata are saved privately. Mark Evidence Submitted requires actual saved evidence; it records submission, not proof of guilt or an assessment of sufficiency. Investigations redact public and DM explanations; authorized detail views and restricted evidence retain the full reason. Public role mentions do not ping roles; only the affected user is mentionable.
+Automatic evidence channels, threads, submission buttons and thread message intake have been removed. Existing evidence records remain preserved. Infraction announcements, DMs, case history and private audit logs continue normally. Confidential investigations retain their full reason in authorized `/infract view` records and redact public/DM explanations.
 
 ## Installation and validation
 
