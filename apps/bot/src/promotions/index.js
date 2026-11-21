@@ -5,6 +5,9 @@ import { db, audit } from '../../../../packages/shared/src/database.js';
 import { ids } from '../../../../config/ids.js';
 import { promotionConfig } from '../../../../config/promotions.js';
 import { isBotOwner } from '../owner-access.js';
+import {requireLowerRank,individualRank} from '../staff-hierarchy.js';
+import {disciplineAdmission} from '../../../../packages/shared/src/staff-admission.js';
+import {infractionConfig} from '../../../../config/infractions.js';
 import { staffLocks } from '../staff-locks.js';
 import { promotionPlan, destinationAuthorized, sameRoles } from './model.js';
 import { PromotionRepository } from './repository.js';
@@ -32,6 +35,9 @@ export class Promotions {
     if (memberId === guild.ownerId || ids.owners.includes(memberId) || ids.roles.owner && member.roles.cache.has(ids.roles.owner)) throw Error('This account is a protected owner.');
     const owner = isBotOwner(actorId), actorRoles = roleIds(actor), targetRoles = roleIds(member);
     const plan = promotionPlan(targetRoles, rankId, this.config);
+    requireLowerRank(actorRoles,targetRoles,{destinationId:rankId,allowRecruit:true});
+    const admission=await disciplineAdmission(memberId,this.config.guildId);
+    if(admission?.blacklisted||admission?.restriction||admission?.terminationHeld||member.roles.cache.has(infractionConfig.roles.blacklist))throw Error('An active staff restriction or blacklist prevents promotion.');
     if (plan.previousRankId) plan.previousRankName = member.roles.cache.get(plan.previousRankId)?.name || plan.previousRankName;
     if (!owner && !destinationAuthorized(actorRoles, rankId, this.config)) throw Error('You do not have permission to promote into this destination team.');
     const locked = member.roles.cache.has(this.config.rankLockRoleId), override = actor.roles.cache.has(this.config.rankLockOverrideRoleId);
@@ -183,7 +189,7 @@ export class Promotions {
   async interaction(i) {
     const command=i.isChatInputCommand?.()&&i.commandName==='promote', autocomplete=i.isAutocomplete?.()&&i.commandName==='promote', button='customId'in i&&i.customId.startsWith('nycp:');
     if(!command&&!autocomplete&&!button)return false;
-    if(autocomplete){const focused=String(i.options.getFocused()).toLowerCase();if(i.guildId!==this.config.guildId){await i.respond([]);return true;}const guild=await this.guild(),member=await guild.members.fetch({user:i.user.id,force:true});await i.respond(this.config.groups.flatMap(g=>g.ranks).filter(r=>r.name.toLowerCase().includes(focused)&&(isBotOwner(i.user.id)||destinationAuthorized(roleIds(member),r.id,this.config))).slice(0,25).map(r=>({name:r.name,value:r.id})));return true;}
+    if(autocomplete){const focused=String(i.options.getFocused()).toLowerCase();if(i.guildId!==this.config.guildId){await i.respond([]);return true;}const guild=await this.guild(),member=await guild.members.fetch({user:i.user.id,force:true});await i.respond(this.config.groups.flatMap(g=>g.ranks).filter(r=>r.name.toLowerCase().includes(focused)&&(()=>{try{return this.config.groups.flatMap(g=>g.ranks).findIndex(x=>x.id===r.id)<individualRank(roleIds(member)).index;}catch{return false;}})()&&(isBotOwner(i.user.id)||destinationAuthorized(roleIds(member),r.id,this.config))).slice(0,25).map(r=>({name:r.name,value:r.id})));return true;}
     if(button)await i.deferUpdate();else await i.deferReply({flags:64});
     const work=(async()=>{try{
       if(i.guildId!==this.config.guildId)throw Error('Use promotion commands in the main NYC server.');

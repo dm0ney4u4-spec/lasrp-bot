@@ -1,0 +1,5 @@
+CREATE TABLE "StaffDisciplineState" ("id" TEXT PRIMARY KEY,"guildId" TEXT NOT NULL,"memberId" TEXT NOT NULL,"version" INTEGER NOT NULL DEFAULT 1,"data" JSONB NOT NULL,UNIQUE("guildId","memberId"));
+CREATE TABLE "InfractionCase" ("id" TEXT PRIMARY KEY,"guildId" TEXT NOT NULL,"memberId" TEXT NOT NULL,"issuerId" TEXT NOT NULL,"type" TEXT NOT NULL,"status" TEXT NOT NULL,"data" JSONB NOT NULL,"createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX "InfractionCase_member" ON "InfractionCase"("guildId","memberId","createdAt");
+CREATE TABLE "InfractionOperation" ("id" TEXT PRIMARY KEY,"guildId" TEXT NOT NULL,"memberId" TEXT NOT NULL,"actorId" TEXT NOT NULL,"kind" TEXT NOT NULL,"status" TEXT NOT NULL,"activeKey" TEXT UNIQUE,"data" JSONB NOT NULL,"expiresAt" TIMESTAMPTZ(3) NOT NULL,"createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE "InfractionEvidence" ("id" TEXT PRIMARY KEY,"caseId" TEXT NOT NULL REFERENCES "InfractionCase"("id"),"authorId" TEXT NOT NULL,"data" JSONB NOT NULL,"createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);

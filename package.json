@@ -41,7 +41,8 @@
         "stop": "tsx scripts/stop.ts",
         "discord:doctor": "tsx scripts/diagnose-discord.ts",
         "session:check": "tsx scripts/session-check.ts",
-        "promotion:check": "tsx scripts/promotion-check.ts"
+        "promotion:check": "tsx scripts/promotion-check.ts",
+        "infraction:check": "tsx scripts/infraction-check.ts"
     },
     "dependencies": {
         "@prisma/client": "6.12.0",

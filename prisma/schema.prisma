@@ -480,3 +480,44 @@ model PromotionOperation {
  updatedAt DateTime @default(now()) @db.Timestamptz(3)
  @@index([guildId,status,updatedAt], map: "PromotionOperation_recovery")
 }
+
+model StaffDisciplineState {
+ id String @id
+ guildId String
+ memberId String
+ version Int @default(1)
+ data Json
+ @@unique([guildId,memberId])
+}
+model InfractionCase {
+ id String @id
+ guildId String
+ memberId String
+ issuerId String
+ type String
+ status String
+ data Json
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ evidence InfractionEvidence[]
+ @@index([guildId,memberId,createdAt],map: "InfractionCase_member")
+}
+model InfractionOperation {
+ id String @id
+ guildId String
+ memberId String
+ actorId String
+ kind String
+ status String
+ activeKey String? @unique
+ data Json
+ expiresAt DateTime @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+}
+model InfractionEvidence {
+ id String @id
+ caseId String
+ case InfractionCase @relation(fields:[caseId],references:[id])
+ authorId String
+ data Json
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+}

@@ -32,7 +32,7 @@ if(process.env.NODE_ENV==='production'&&process.env.DEMO_MODE==='true')throw Err
 await db.$connect();
 const store=new DatabaseStore();await store.load();store.guild(ids.guildId||'DEMO_GUILD');
 const erlc=new ErlcAdapter(process.env.ERLC_SERVER_API_KEY??'');
-const {client,service,applications,ticketSystem,globalBans,sessionHub,promotions,bootstrap}=createBot(store,erlc);
+const {client,service,applications,ticketSystem,globalBans,sessionHub,promotions,infractions,bootstrap}=createBot(store,erlc);
 const app=express(),server=http.createServer(app);app.disable('x-powered-by');
 app.use(helmet({contentSecurityPolicy:{directives:{defaultSrc:["'self'"],scriptSrc:["'self'"],styleSrc:["'self'"],imgSrc:["'self'",'data:'],connectSrc:["'self'"],objectSrc:["'none'"],upgradeInsecureRequests:null}},crossOriginEmbedderPolicy:false}));
 app.use(express.json({limit:'96kb'}));
@@ -81,7 +81,7 @@ app.use((error:unknown,req:express.Request,res:express.Response,next:express.Nex
 const {sockets,stop:stopCadSockets}=configureCadSockets(server,client);
 const port=Number(process.env.PORT??3000);server.listen(port,process.env.HOST??'127.0.0.1',()=>console.log(`NYCRP CAD: http://localhost:${port}`));
 const stopBackgroundJobs=startJobs(service,applications,erlc,store),stopCadNotifications=startCadNotifications(client);
-const stopJobs=async()=>{await Promise.all([stopBackgroundJobs(),stopCadNotifications(),ticketSystem.stop(),globalBans.stop(),sessionHub.stop(),promotions.stop()]);};
+const stopJobs=async()=>{await Promise.all([stopBackgroundJobs(),stopCadNotifications(),ticketSystem.stop(),globalBans.stop(),sessionHub.stop(),promotions.stop(),infractions.stop()]);};
 const controlToken=randomBytes(32).toString('hex');
 fs.mkdirSync('data',{recursive:true});fs.writeFileSync('data/runtime-control.json',JSON.stringify({port,token:controlToken,pid:process.pid}),{mode:0o600});
 app.post('/internal/shutdown',(req,res)=>{const supplied=String(req.headers['x-lasrp-control']??'');if(!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress??'')||supplied.length!==controlToken.length||!timingSafeEqual(Buffer.from(supplied),Buffer.from(controlToken)))return res.sendStatus(404);res.json({ok:true});setImmediate(()=>void shutdown());});

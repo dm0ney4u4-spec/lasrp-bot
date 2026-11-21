@@ -1,3 +1,6 @@
+import {assertNotStaffBlacklisted} from '../../../packages/shared/src/staff-admission.js';
+import {infractionConfig} from '../../../config/infractions.js';
+import {staffLocks} from './staff-locks.js';
 import {rankRoles}from'./staff-roles.js';
 import { ActionRowBuilder,ModalBuilder,TextInputBuilder,TextInputStyle,PermissionFlagsBits,type Client,type Interaction,type GuildMember } from 'discord.js';
 import type { Application } from '@prisma/client';
@@ -111,8 +114,13 @@ export class Applications {
  own(app:Application,userId:string){if(app.applicantId!==userId||app.guildId!==ids.guildId)throw Error('Application access denied');}
  answerModal(customId:string,title:string,value?:string){const input=new TextInputBuilder().setCustomId('answer').setLabel(title).setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(2500);if(value)input.setValue(value);return new ModalBuilder().setCustomId(customId).setTitle('NYCRP Staff Application').addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));}
  async review(app:Application,actor:string,action:string,reason:string){
+  if(action!=='accept')return this.reviewInternal(app,actor,action,reason);
+  const key=ids.guildId+':'+app.applicantId;if(staffLocks.has(key))throw Error('Another staff operation is in progress for this applicant.');staffLocks.add(key);try{return await this.reviewInternal(app,actor,action,reason);}finally{staffLocks.delete(key);}
+ }
+ async reviewInternal(app:Application,actor:string,action:string,reason:string){
   const principal=await this.principal(actor);if(!allowed(principal,'reviewer'))throw Error('Application reviewer access required');if(actor===app.applicantId)throw Error('You cannot review your own application');
   if(action==='accept'&&!allowed(principal,'management'))throw Error('Management must approve acceptance');
+  if(action==='accept'){await assertNotStaffBlacklisted(app.applicantId,ids.guildId);const member=await(await this.client.guilds.fetch(ids.guildId)).members.fetch({user:app.applicantId,force:true});if(member.roles.cache.has(infractionConfig.roles.blacklist))throw Error('A staff blacklist prevents acceptance.');}
   if(!['submitted','interview','more_info'].includes(app.status))throw Error('Application is not pending');
   const at=new Date().toISOString(),history=app.history as object[];
   if(action==='note'){const notes=app.privateNotes as object[];return this.update(app,{privateNotes:[...notes,{actor,text:reason,at}]},actor,'application.note');}

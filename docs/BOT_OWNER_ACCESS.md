@@ -11,3 +11,5 @@ This changes bot authorization. It does not grant the Discord bot permissions it
 Only `/session` is registered for sessions, with `vote`, `start`, `low`, `shutdown`, `cancel-vote`, `status`, and `panel`. `/ssu`, `/ssd`, and `/session boost` are removed. Cached legacy invocations cannot perform their old action.
 
 Validation: TypeScript check and **185 automated tests passed**, including exact owner identity, no-role/no-Administrator ticket access, session authorization, global-ban authorization, ordinary member denial, wrong-guild denial and the new command registry.
+
+Staff discipline and promotions additionally enforce the shared individual-rank chain for configured owners: one known individual rank, target below actor, and promotion destination below actor. Owner authorization does not bypass these checks.

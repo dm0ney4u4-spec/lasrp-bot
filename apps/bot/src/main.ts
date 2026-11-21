@@ -1,3 +1,4 @@
+import {Infractions,infractCommand} from './infractions/index.js';
 import {Promotions,promoteCommand} from './promotions/index.js';
 import {isBotOwner} from './owner-access.js';
 import {regulationsTemplate,regulationsInteraction} from './regulations.js';
@@ -43,7 +44,7 @@ export const extraCommands=[
  command('help','Show available NYCRP commands'),command('cad','Server owner: deploy CAD information').addSubcommand(c=>c.setName('panel').setDescription('Deploy or refresh the CAD panel in its configured channel')),
  command('erlc','Read live ER:LC information').addSubcommand(c=>c.setName('status').setDescription('Server health and population')).addSubcommand(c=>c.setName('players').setDescription('Live player list')).addSubcommand(c=>c.setName('queue').setDescription('Queue size')).addSubcommand(c=>c.setName('message').setDescription('Send an approved in-game announcement').addStringOption(o=>o.setName('text').setDescription('Announcement').setRequired(true).setMaxLength(160))),
 ];
-export const allCommands=[...baseCommands.filter(c=>!['setup','panel','cad','security','session','staff'].includes(c.name)),...extraCommands.filter(c=>c.name!=='panic'),...sessionCommands,promoteCommand,staffCommand,liveryCommand,...ticketCommands];
+export const allCommands=[...baseCommands.filter(c=>!['setup','panel','cad','security','session','staff'].includes(c.name)),...extraCommands.filter(c=>c.name!=='panic'),...sessionCommands,promoteCommand,infractCommand,staffCommand,liveryCommand,...ticketCommands];
 export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
  // Set presence during gateway identification; a separate Ready broadcast can race a reconnect.
  const client=new Client({presence:{status:'idle',activities:[{name:'Custom Status',type:ActivityType.Custom,state:'💤Sleeping'}]},intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMembers,GatewayIntentBits.GuildModeration,GatewayIntentBits.DirectMessages,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent]});
@@ -64,6 +65,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
  const originalVars=service.variables.bind(service);service.variables=(g:any,member?:any)=>({...originalVars(g,member),community:ids.settings.community,cad_url:process.env.WEB_BASE_URL??'http://localhost:3000',recruitment_status:applications.settings().open?'OPEN':'CLOSED',application_requirements:applications.settings().requirements});
  const principal=async(userId:string):Promise<Principal>=>applications.principal(userId);
  const sessions=new Sessions(client,service,erlc);service.sessionHub=sessions;
+ const infractions=new Infractions(client,service);client.on(Events.ClientReady,()=>infractions.start());client.on(Events.MessageCreate,message=>{void infractions.message(message).catch(()=>console.error('Evidence capture requires review.'));});
  const promotions=new Promotions(client,service);client.on(Events.ClientReady,()=>promotions.start());
  const management=async(userId:string)=>{const p=await principal(userId);if(!allowed(p,'management'))throw Error('Management access required');return p;};
  const locks=new Set<string>();
@@ -74,6 +76,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
    // Run before generic handlers, role lookups, or database access for unrelated features.
    if(await liveries.interaction(i))return;
    if(await ticketSystem.interaction(i))return;
+   if(await infractions.interaction(i))return;
    if(await promotions.interaction(i))return;
    if(await sessions.interaction(i))return;
    i=await acknowledgeInteraction(i);
@@ -145,7 +148,7 @@ export function createBot(store:DatabaseStore,erlc:ErlcAdapter){
  });
  client.on(Events.GuildMemberAdd,async member=>{if(member.guild.id!==ids.guildId)return;const g=store.guild(ids.guildId);if(!g.config.welcomeChannel)return;try{const channel=await member.guild.channels.fetch(g.config.welcomeChannel);if(channel?.isTextBased()&&'send'in channel)await channel.send(service.panel(g,'welcome',member));}catch{console.error('Welcome delivery failed.');}});
  client.on(Events.Error,()=>console.error('Discord connection reported an error.'));
- return {client,service,applications,ticketSystem,globalBans,promotions,sessionHub:sessions,bootstrap:async()=>{await bootstrapCommunity(service);try{await applications.compactExistingReviews();}catch{console.error('Existing application review compaction needs attention.');}}};
+ return {client,service,applications,ticketSystem,globalBans,promotions,infractions,sessionHub:sessions,bootstrap:async()=>{await bootstrapCommunity(service);try{await applications.compactExistingReviews();}catch{console.error('Existing application review compaction needs attention.');}}};
 }
 async function deploy(i:ChatInputCommandInteraction,service:CommunityService,key:string){
  await i.deferReply({flags:64});if(key==='cad'&&!isBotOwner(i.user.id)&&i.user.id!==i.guild!.ownerId)throw Error('Only the server owner can deploy the CAD panel');const channelId=key==='cad'?ids.channels.cadPanel:key==='applications'?ids.channels.applicationsPanel:key==='departments'?ids.channels.departments:key==='community_rules'?ids.channels.rules:i.channelId;const g=service.store.guild(i.guildId!),old=Object.values(g.published).find((p:any)=>p.key===key&&p.channel===channelId) as {id:string}|undefined;const publication=await service.publish(i.guildId!,channelId,key,i.user.id,{},old?.id);await editReply(i,notice('Panel ready',`**${key}** published as message ${publication.message}. Repeating this command updates the existing panel.`));

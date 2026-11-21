@@ -87,7 +87,7 @@ export async function command(service,i) {
     return editReply(i, notice('✅ Moderation recorded',`Case **${record.id}** saved.${record.dmFailed?' Direct message could not be delivered.':''}`,'green'));
   }
   if(i.commandName==='case') {
-    const record=g.cases[opt.getString('id')];if(!canViewCase(member,g.config,record))throw Error('Case access denied');
+    const record=g.cases[opt.getString('id')];if(record?.kind==='staff_infraction')throw Error('Use /infract view or /infract void for staff disciplinary cases.');if(!canViewCase(member,g.config,record))throw Error('Case access denied');
     const action=opt.getString('action');
     if(action==='view')return i.reply(render(service.template(g,record.kind),record.vars,{ephemeral:true}));
     requireAccess(member,g.config,'management');if(record.memberId===member.id)throw Error('You cannot modify your own disciplinary record');

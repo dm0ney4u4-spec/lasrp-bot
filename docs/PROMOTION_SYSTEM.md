@@ -2,7 +2,7 @@
 
 Use **`/promote user: rank: reason:`** in the main NYC guild. Rank is a required autocomplete string restricted to the 23 configured individual ranks. Team badges, separators, High Rank, Senior High Rank, Rank Lock and unrelated roles cannot be selected as ranks. A reason of 3–1000 characters is required and appears in the public promotion announcement.
 
-The old `/staff promote` is no longer registered and cached invocations are rejected. Other `/staff` commands, including demotion, discipline, notes, training and staff history, remain available. The existing demotion command now recognizes the same individual rank list and destination bundles, so newly promoted Lead/IA ranks remain demotable without removing unrelated roles. Existing staff and promotion records were preserved.
+The old `/staff promote` is no longer registered and cached invocations are rejected. Other `/staff` commands, including demotion, notes, training and staff history; discipline now uses /infract, remain available. The existing demotion command now recognizes the same individual rank list and destination bundles, so newly promoted Lead/IA ranks remain demotable without removing unrelated roles. Existing staff and promotion records were preserved.
 
 ## Direct execution and permissions
 
@@ -15,7 +15,7 @@ The command applies the promotion directly after permission and safety checks. T
 | Management | `1529545703024627754` |
 | Senior High Rank / Directive | `1529541363547504781` |
 
-The existing explicitly configured bot-owner authorization remains supported, including user `1425577335637413961`. It bypasses acting-member role requirements and actor hierarchy, but cannot promote itself, bots, protected owners or targets beyond the bot's own manageable hierarchy. An owner rank-lock bypass is explicitly recorded as **Configured owner**.
+The existing explicitly configured bot-owner authorization remains supported, including user `1425577335637413961`. It bypasses acting-member permission-role requirements, but the actor must have one recognized individual rank and must outrank both the target and destination. It cannot promote itself, bots, protected owners or targets beyond the bot's manageable hierarchy. An owner rank-lock bypass is explicitly recorded as **Configured owner**.
 
 Other actors require Rank Lock Override `1569461995869184010` when the target has Rank Lock `1529546002116116580`. This override bypasses only the lock and does not satisfy destination permissions or hierarchy. Roles granting dangerous permissions the actor lacks are rejected. Active suspensions, investigations, terminations and pending/uncertain staff role operations must be resolved first. The existing owner emergency command lockdown also blocks non-owner promotions.
 
@@ -73,3 +73,5 @@ The existing Windows portable launcher applies the additive migration automatica
 Validation covers every rank/bundle and every permission alternative, auxiliary-role rejection, self/bot/owner protection, lock overrides, hierarchy/privilege failures, expired/stale/foreign operation claims, legacy reservation cancellation, concurrency, unrelated role changes, blocked DMs, partial/ambiguous failures, rollback failure, restart recovery and receipt recovery. Live diagnostics verify configured Discord resources without promoting a real member or sending a fake promotion announcement.
 
 Main files: `config/promotions.js`, `apps/bot/src/promotions/{model,repository,views,index}.js`, `staff-locks.js`, the additive Prisma model/migration, supplied assets, `scripts/promotion-check.ts`, `tests/promotions.test.ts`. Integration changes are limited to bot command routing/registration, graceful shutdown, retiring the old promotion subcommand, keeping demotion compatible with the new rank bundles, recognizing the new staff roles, and adapting the former promotion regression test to validate retirement while retaining demotion coverage.
+
+The shared individual-rank chain now applies to every actor, including configured owners and rank-lock overrides. Unknown or conflicting individual ranks block execution. Director is the highest rank; granting Director requires a manual Discord owner action. Persistent staff blacklist records also block promotion even when their Discord marker is absent. See INFRACTION_SYSTEM.md.
