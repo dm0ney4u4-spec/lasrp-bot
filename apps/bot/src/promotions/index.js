@@ -8,7 +8,7 @@ import { isBotOwner } from '../owner-access.js';
 import { staffLocks } from '../staff-locks.js';
 import { promotionPlan, destinationAuthorized, sameRoles } from './model.js';
 import { PromotionRepository } from './repository.js';
-import { card, preview, announcement, directMessage, logCard, success } from './views.js';
+import { card, announcement, directMessage, logCard, success } from './views.js';
 export { promoteCommand } from './views.js';
 const nonce = value => createHash('sha256').update(value).digest('hex').slice(0,24);
 const roleIds = member => [...member.roles.cache.keys()];
@@ -187,11 +187,10 @@ export class Promotions {
     if(button)await i.deferUpdate();else await i.deferReply({flags:64});
     const work=(async()=>{try{
       if(i.guildId!==this.config.guildId)throw Error('Use promotion commands in the main NYC server.');
-      if(command){const row=await this.begin(i.user.id,i.options.getUser('user',true).id,i.options.getString('rank',true),i.options.getString('reason',true));await i.editReply(preview(this.config,row));return;}
+      if(command){const pending=await this.begin(i.user.id,i.options.getUser('user',true).id,i.options.getString('rank',true),i.options.getString('reason',true));const row=await this.confirm(pending.id,i.user.id);await i.editReply(success(this.config,row));return;}
       const [,action,id]=i.customId.split(':');
       if(action==='cancel'){const row=await this.repository.claim(id,i.user.id,true);await i.editReply({...card(this.config,'Promotion Cancelled',['No roles were changed.'],row.id,{ephemeral:true}),attachments:[]});return;}
-      if(action!=='confirm')throw Error('Unknown promotion action.');
-      const row=await this.confirm(id,i.user.id);await i.editReply({...success(this.config,row),attachments:[]});
+      throw Error('Promotion confirmation buttons have been removed. Run /promote to apply a promotion directly.');
     }catch(error){console.error('Promotion action failed:',error?.code||error?.name||'Error');try{await audit(i.user.id,'promotion.rejected',this.config.guildId,null,{code:error?.code||'PROMOTION_REJECTED',memberId:command?i.options.getUser('user')?.id:undefined});}catch{}const message=error instanceof Error&&!error.code?error.message:'The promotion could not complete. Its saved record is preserved; check the private audit history.';await i.editReply({...card(this.config,'Promotion Needs Attention',[message],'error',{ephemeral:true}),attachments:[]});}})();
     this.work.add(work);try{await work;}finally{this.work.delete(work);}return true;
   }

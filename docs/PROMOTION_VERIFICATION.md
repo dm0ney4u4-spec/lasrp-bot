@@ -12,3 +12,7 @@
 - Source remains on `website-development`; no main merge or website production deployment was performed.
 
 See [PROMOTION_SYSTEM.md](PROMOTION_SYSTEM.md) for exact behavior, configuration, permissions, recovery, setup and the handling of an uncertain operation requiring administrator review.
+
+## Direct execution update
+
+`/promote` now executes immediately after validation, without displaying confirmation controls. The public announcement and private success response include the mandatory reason. The existing promotion announcement was repaired in place using its saved reason, without pinging any user or role again; banner, logo and footer each returned HTTP 200 afterwards. The full 205-test suite passed with the direct execution behavior.

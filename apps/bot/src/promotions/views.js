@@ -6,7 +6,7 @@ const roles = ids => ids.length ? ids.map(id => `<@&${id}>`).join(', ') : 'None'
 export const promoteCommand = new SlashCommandBuilder().setName('promote').setDescription('Promote a staff member with a verified role bundle').setDMPermission(false)
   .addUserOption(o => o.setName('user').setDescription('Staff member being promoted').setRequired(true))
   .addStringOption(o => o.setName('rank').setDescription('Individual destination rank').setRequired(true).setAutocomplete(true))
-  .addStringOption(o => o.setName('reason').setDescription('Private promotion reason').setRequired(true).setMinLength(3).setMaxLength(1000));
+  .addStringOption(o => o.setName('reason').setDescription('Promotion reason shown in the announcement').setRequired(true).setMinLength(3).setMaxLength(1000));
 export function card(config, title, body, key, { branded = false, ephemeral = false, controls = [] } = {}) {
   const files = [], components = [];
   const image = (path, suffix) => { if (!path || !fs.existsSync(path)) return; const name = `promotion-${key}-${suffix}.png`; files.push({ attachment: path, name }); components.push({ type: 12, items: [{ media: { url: 'attachment://' + name } }] }); };
@@ -20,13 +20,9 @@ export function card(config, title, body, key, { branded = false, ephemeral = fa
   if (branded) image(config.assets.footer, 'footer');
   return { flags: 32768 | (ephemeral ? 64 : 0), components: [{ type: 17, accent_color: config.color, components }], files, allowedMentions: { parse: [] } };
 }
-export function preview(config, row) {
-  const p = row.data.plan;
-  return card(config, 'Confirm Promotion', [`**Staff member:** <@${row.memberId}>\n**Previous rank:** ${p.previousRankId ? `<@&${p.previousRankId}>` : 'Not previously ranked'}\n**New rank:** <@&${row.rankId}>`, `**Roles being added:** ${roles(p.add)}\n**Roles being removed:** ${roles(p.remove)}`, '**Private reason:** ' + escapeMarkdown(row.reason), `Confirmation expires <t:${Math.floor(new Date(row.expiresAt).getTime() / 1000)}:R>. Only the original executor can confirm.`], row.id, { ephemeral: true, controls: [{ type: 1, components: [{ type: 2, style: 3, label: 'Confirm Promotion', custom_id: 'nycp:confirm:' + row.id }, { type: 2, style: 2, label: 'Cancel', custom_id: 'nycp:cancel:' + row.id }] }] });
-}
 export function announcement(config, row) {
   const icon = config.iconName ? `<:${config.iconName}:${config.iconId}> ` : '';
-  const payload = card(config, icon + 'New Promotion', [`**User:** <@${row.memberId}>\n**New Rank:** <@&${row.rankId}>`, `-# Promoted By: <@${row.actorId}>`], row.id, { branded: true });
+  const payload = card(config, icon + 'New Promotion', [`**User:** <@${row.memberId}>\n**New Rank:** <@&${row.rankId}>\n**Reason:** ${escapeMarkdown(row.reason)}`, `-# Promoted By: <@${row.actorId}>`], row.id, { branded: true });
   const parts = payload.components[0].components;
   const credit = parts.findIndex(c => c.type === 10 && c.content?.startsWith('-# Promoted By:'));
   if (credit >= 0) { parts.splice(credit + 1, 1); parts.splice(credit, 0, separator()); }
@@ -42,5 +38,5 @@ export function logCard(config, row) {
 }
 export function success(config, row) {
   const p = row.data.plan, url = row.data.announcementId ? `https://discord.com/channels/${config.guildId}/${config.announcementChannelId}/${row.data.announcementId}` : null;
-  return card(config, 'Promotion Successful', [`**User:** <@${row.memberId}>\n**Previous Rank:** ${p.previousRankId ? `<@&${p.previousRankId}>` : 'Not previously ranked'}\n**New Rank:** <@&${row.rankId}>`, 'The appropriate staff roles have been updated and verified successfully.', url ? `[View promotion announcement](${url})` : 'The announcement is saved for automatic delivery retry.'], row.id, { ephemeral: true });
+  return card(config, 'Promotion Successful', [`**User:** <@${row.memberId}>\n**Previous Rank:** ${p.previousRankId ? `<@&${p.previousRankId}>` : 'Not previously ranked'}\n**New Rank:** <@&${row.rankId}>\n**Reason:** ${escapeMarkdown(row.reason)}`, 'The appropriate staff roles have been updated and verified successfully.', url ? `[View promotion announcement](${url})` : 'The announcement is saved for automatic delivery retry.'], row.id, { ephemeral: true });
 }

@@ -1,12 +1,12 @@
 # NYCRP promotion system
 
-Use **`/promote user: rank: reason:`** in the main NYC guild. Rank is a required autocomplete string restricted to the 23 configured individual ranks. Team badges, separators, High Rank, Senior High Rank, Rank Lock and unrelated roles cannot be selected as ranks. A reason of 3–1000 characters is required.
+Use **`/promote user: rank: reason:`** in the main NYC guild. Rank is a required autocomplete string restricted to the 23 configured individual ranks. Team badges, separators, High Rank, Senior High Rank, Rank Lock and unrelated roles cannot be selected as ranks. A reason of 3–1000 characters is required and appears in the public promotion announcement.
 
 The old `/staff promote` is no longer registered and cached invocations are rejected. Other `/staff` commands, including demotion, discipline, notes, training and staff history, remain available. The existing demotion command now recognizes the same individual rank list and destination bundles, so newly promoted Lead/IA ranks remain demotable without removing unrelated roles. Existing staff and promotion records were preserved.
 
-## Confirmation and permissions
+## Direct execution and permissions
 
-The command privately previews the member, automatically detected previous individual rank, destination rank, added/removed role IDs and private reason. **Confirm Promotion** and **Cancel** are bound to the original executor, expire after ten real minutes and persist across restarts. No roles change before confirmation. Permissions, lock status, restrictions, target roles and hierarchy are checked again at confirmation. A changed managed-role snapshot/configuration invalidates the preview.
+The command applies the promotion directly after permission and safety checks. There is no confirmation or cancel prompt. The actor, destination, current roles, lock status, restrictions and hierarchy are validated before any mutation. Internally, the existing durable operation reservation/claim still prevents concurrent promotions and preserves recovery; it is not a user confirmation step. Legacy confirmation buttons cannot execute a promotion.
 
 | Destination | Any one of these acting-member roles |
 | --- | --- |
@@ -37,7 +37,7 @@ Promotion removes only roles in the explicit managed set: the configured individ
 
 Public announcements go to **`1529565497438372000`**, with the supplied Promotions banner, custom icon `1530309174506950727`, NYC logo, a simple user/new-rank role mention, promoter credit and matching footer. They use Components V2 and cream accent `#D8C5A4`.
 
-The actual destination role is mentioned using its ID. Explicit `allowedMentions` permits only the promoted member's user mention; role, staff, everyone/here and promoter notifications are disabled. The mandatory reason is excluded from the public announcement.
+The actual destination role is mentioned using its ID. Explicit `allowedMentions` permits only the promoted member's user mention; role, staff, everyone/here and promoter notifications are disabled. The mandatory reason is shown under the new rank in the public announcement and remains included in the DM and audit record.
 
 After fresh Discord verification of the complete destination bundle, the executor receives an ephemeral Components V2 success confirmation with previous/new rank and announcement link. If announcement delivery is temporarily unavailable, success refers to verified role changes and clearly states that announcement delivery is pending.
 
@@ -47,9 +47,9 @@ Detailed private logs go to **`1529614627619475608`**, including promotion ID, m
 
 ## Persistence, rollback and recovery
 
-Additive migration **`202611200001_promotions`** creates `PromotionOperation` in the existing PostgreSQL database. UTC-aware timestamps avoid confirmation-expiry errors when the database uses a different local timezone. Existing tables/migrations are preserved. Promotion records hold immutable preview information, per-role progress, pending step, result, delivery receipts and history. Successful changes also write compatible `RANK-...` staff records and preserve existing profile fields.
+Additive migration **`202611200001_promotions`** creates `PromotionOperation` in the existing PostgreSQL database. UTC-aware timestamps avoid confirmation-expiry errors when the database uses a different local timezone. Existing tables/migrations are preserved. Promotion records hold the validated role-change snapshot, per-role progress, pending step, result, delivery receipts and history. Successful changes also write compatible `RANK-...` staff records and preserve existing profile fields.
 
-A unique active member key, transactional confirmation claim and shared staff-operation lock prevent simultaneous promotions or conflicting discipline changes. Discord mutation intent is saved before each individual role request. Final roles are freshly fetched and verified before success.
+A unique active member key, transactional operation claim and shared staff-operation lock prevent simultaneous promotions or conflicting discipline changes. Discord mutation intent is saved before each individual role request. Final roles are freshly fetched and verified before success.
 
 On partial failure, only touched managed roles are restored and the original managed snapshot is checked again. If an ambiguous final request actually completed the full destination bundle, fresh verification records success. Failed restoration or unexpected external changes to managed staff roles produce an **uncertain** record and retain the member lock for review. The bot does not guess which external rank decision to overwrite.
 
@@ -70,6 +70,6 @@ npm start
 
 The existing Windows portable launcher applies the additive migration automatically. External PostgreSQL hosting requires `npm run db:generate` and `npm run db:migrate` during setup before starting. Secrets stay in the existing backend `.env`; no new bot, tokens or database are required.
 
-Validation covers every rank/bundle and every permission alternative, auxiliary-role rejection, self/bot/owner protection, lock overrides, hierarchy/privilege failures, expired/stale/foreign confirmations, cancellation, concurrency, unrelated role changes, blocked DMs, partial/ambiguous failures, rollback failure, restart recovery and receipt recovery. Live diagnostics verify configured Discord resources without promoting a real member or sending a fake promotion announcement.
+Validation covers every rank/bundle and every permission alternative, auxiliary-role rejection, self/bot/owner protection, lock overrides, hierarchy/privilege failures, expired/stale/foreign operation claims, legacy reservation cancellation, concurrency, unrelated role changes, blocked DMs, partial/ambiguous failures, rollback failure, restart recovery and receipt recovery. Live diagnostics verify configured Discord resources without promoting a real member or sending a fake promotion announcement.
 
 Main files: `config/promotions.js`, `apps/bot/src/promotions/{model,repository,views,index}.js`, `staff-locks.js`, the additive Prisma model/migration, supplied assets, `scripts/promotion-check.ts`, `tests/promotions.test.ts`. Integration changes are limited to bot command routing/registration, graceful shutdown, retiring the old promotion subcommand, keeping demotion compatible with the new rank bundles, recognizing the new staff roles, and adapting the former promotion regression test to validate retirement while retaining demotion coverage.
