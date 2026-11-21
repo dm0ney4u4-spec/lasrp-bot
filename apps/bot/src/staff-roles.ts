@@ -1,3 +1,4 @@
+import {promotionManagedRoles} from '../../../config/promotions.js';
 import {randomUUID}from'node:crypto';
 ﻿import { PermissionFlagsBits,type GuildMember } from 'discord.js';
 import { ids } from '../../../config/ids.js';
@@ -11,7 +12,7 @@ export function rankRoles(rankId:string){const index=rankIndex(rankId);if(index<
  if(index>=rankIndex('1529543672612388894'))roles.add(ids.staffTeams.management);
  if(index>=rankIndex(ids.staffTeams.seniorHighRank))roles.add(ids.staffTeams.seniorHighRank);
  return [...roles];}
-export function staffRoleIds(g:any){const mapped={...ids.roles,...g.config.rbacRoles};return new Set<string>([...ids.staffRankRoles,...ids.legacyStaffRoles,...Object.values(ids.staffTeams),...g.config.staffRoles,...g.config.managementRoles,...['staff','trialModerator','moderator','seniorModerator','admin','seniorAdmin','communityManagement','applicationReviewer','ticketSupport','securityTeam','sessionHost','supervisor'].map(k=>mapped[k])].filter(id=>id&&id!==mapped.owner));}
+export function staffRoleIds(g:any){const mapped={...ids.roles,...g.config.rbacRoles};return new Set<string>([...promotionManagedRoles,...ids.staffRankRoles,...ids.legacyStaffRoles,...Object.values(ids.staffTeams),...g.config.staffRoles,...g.config.managementRoles,...['staff','trialModerator','moderator','seniorModerator','admin','seniorAdmin','communityManagement','applicationReviewer','ticketSupport','securityTeam','sessionHost','supervisor'].map(k=>mapped[k])].filter(id=>id&&id!==mapped.owner));}
 export function disciplineCounts(roleIds:Iterable<string>){const roles=new Set(roleIds);return{warnings:ids.disciplineRoles.warnings.reduce((n,r,index)=>roles.has(r)?Math.max(n,index+1):n,0),strikes:ids.disciplineRoles.strikes.reduce((n,r,index)=>roles.has(r)?Math.max(n,index+1):n,0)};}
 export function disciplineProgress(counts:{warnings:number;strikes:number},type:string){let {warnings,strikes}=counts;let terminated=false;if(type==='warning'){warnings++;if(warnings>=3){warnings=0;strikes++;}}else if(type==='strike')strikes++;else throw Error('Unknown warning / strike action');if(strikes>=3){warnings=0;strikes=0;terminated=true;}return{warnings,strikes,terminated};}
 export function counterRoles(warnings:number,strikes:number){return[...ids.disciplineRoles.warnings.slice(0,warnings),...ids.disciplineRoles.strikes.slice(0,strikes)];}

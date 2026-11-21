@@ -1,4 +1,6 @@
-import {rankIndex,rankRoles,staffRoleIds,applyRoleChange,restoreStaff}from'./staff-roles.js';
+import {promotionRanks,promotionBundle,promotionManagedRoles} from '../../../config/promotions.js';
+import {staffLocks} from './staff-locks.js';
+import {applyRoleChange,restoreStaff}from'./staff-roles.js';
 import {infractionTypes,issueDiscipline,revokeDiscipline}from'./discipline.js';
 import { SlashCommandBuilder,PermissionFlagsBits,type ChatInputCommandInteraction,type GuildMember,type Role } from 'discord.js';
 import { randomUUID } from 'node:crypto';
@@ -10,7 +12,7 @@ import { editReply } from './replies.js';
 import type { CommunityService } from './service.js';
 const command=new SlashCommandBuilder().setName('staff').setDescription('NYCRP staff management and records').setDMPermission(false);
 const rank=(name:string)=>command.addSubcommand(c=>c.setName(name).setDescription(`${name==='promote'?'Promote':'Demote'} a staff member`).addUserOption(o=>o.setName('member').setDescription('Staff member').setRequired(true)).addRoleOption(o=>o.setName('rank').setDescription('Configured new rank role').setRequired(true)).addStringOption(o=>o.setName('reason').setDescription('Private management reason').setRequired(true).setMaxLength(1000)));
-rank('promote');rank('demote');
+rank('demote');
 for(const action of ['suspend','investigate','reinstate'])command.addSubcommand(c=>c.setName(action).setDescription(action==='suspend'?'Suspend staff roles':action==='investigate'?'Place staff under investigation':'Restore roles from a suspension or investigation').addUserOption(o=>o.setName('member').setDescription('Affected staff member').setRequired(true)).addStringOption(o=>o.setName('reason').setDescription('Private management reason').setRequired(true).setMinLength(5).setMaxLength(1000)));
 command.addSubcommand(c=>c.setName('profile').setDescription('Staff profile').addUserOption(o=>o.setName('member').setDescription('Staff member, defaults to you'))).addSubcommand(c=>c.setName('roster').setDescription('Configured staff roster'))
 .addSubcommand(c=>c.setName('note').setDescription('Add confidential management note').addUserOption(o=>o.setName('member').setDescription('Staff member').setRequired(true)).addStringOption(o=>o.setName('text').setDescription('Private note').setRequired(true).setMaxLength(1000)))
@@ -21,9 +23,10 @@ command.addSubcommand(c=>c.setName('profile').setDescription('Staff profile').ad
  .addSubcommand(c=>c.setName('history').setDescription('View internal infractions').addUserOption(o=>o.setName('member').setDescription('Member, defaults to yourself')))
  .addSubcommand(c=>c.setName('remove').setDescription('Revoke a staff infraction').addStringOption(o=>o.setName('id').setDescription('Case ID').setRequired(true)).addStringOption(o=>o.setName('reason').setDescription('Revocation reason').setRequired(true).setMaxLength(1000))));
 export const staffCommand=command;
-const staffLocks=new Set<string>();
+
 export async function staffAction(service:CommunityService,i:ChatInputCommandInteraction,p:Principal){const caseId=i.options.getString('id'),caseMember=caseId?service.store.guild(ids.guildId).cases[caseId]?.memberId:undefined;const key=i.guildId+':'+(i.options.getUser('member')?.id??caseMember??i.user.id);if(staffLocks.has(key))throw Error('Another staff update is in progress for this member.');staffLocks.add(key);try{await staffActionImpl(service,i,p);}finally{staffLocks.delete(key);}}
 async function staffActionImpl(service:CommunityService,i:ChatInputCommandInteraction,p:Principal){
+ if(i.options.getSubcommand()==='promote')throw Error('The old promotion command was replaced. Use /promote user: rank: reason:.');
  const g=service.store.guild(ids.guildId),action=i.options.getSubcommand(),group=i.options.getSubcommandGroup(false),user=i.options.getUser('member')??i.user;
  const caseId=action==='remove'?i.options.getString('id',true):null,caseRecord=caseId?g.cases[caseId]:null;const targetId=caseRecord?.memberId??user.id;
  const staffAuthority=p.roles.some(role=>ids.commandPolicy.staffActions.includes(role));
@@ -59,19 +62,19 @@ async function staffActionImpl(service:CommunityService,i:ChatInputCommandIntera
   const log=await service.restrictedChannel(i.guild!,{...g,config:{...g.config,managementRoles:[...g.config.managementRoles,...ids.staffLogReaderRoles],staffLogChannel:g.config.infractionChannel||g.config.staffLogChannel}},'staffLogChannel','management');
   const record=await issueDiscipline(service,target,actor,bot,type,reason,evidence);await audit(i.user.id,'staff.infraction',record.id,null,{type,outcome:record.outcome});const payload=render(service.template(g,'staff_infraction'),{...record.vars,status:record.outcome});try{await log.send(payload);}catch{await audit(i.user.id,'staff.infraction-log-failed',record.id,null,{});}try{await target.user.send(payload);}catch{await audit(i.user.id,'staff.infraction-dm-failed',record.id,null,{});}
  }
- else if(action==='promote'||action==='demote'){
-  const ranks=ids.staffRankRoles,newRank=i.options.getRole('rank',true) as Role;
+ else if(action==='demote'){
+  const ranks=promotionRanks.map(r=>r.id),newRank=i.options.getRole('rank',true) as Role;
   if(!ranks.includes(newRank.id)){const names=ranks.map(id=>i.guild!.roles.cache.get(id)?.name).filter(Boolean);throw Error(`Select a configured rank. Available ranks: ${names.join(', ')}. Team badges are automatic.`);}
   if(profile.restriction&&!profile.restriction.completedAt||['suspended','investigation','terminated'].some(key=>target.roles.cache.has((ids.disciplineRoles as any)[key])))throw Error('Resolve the active staff restriction before changing ranks.');
-  const oldRank=target.roles.cache.filter(r=>ranks.includes(r.id)).sort((a,b)=>rankIndex(b.id)-rankIndex(a.id)).first();
-  if(action==='demote'&&!oldRank)throw Error('The member has no staff rank to demote.');if(oldRank&&(action==='promote'?rankIndex(newRank.id)<=rankIndex(oldRank.id):rankIndex(newRank.id)>=rankIndex(oldRank.id)))throw Error('Select a higher rank for promotion or a lower rank for demotion.');
+  const oldRank=target.roles.cache.filter(r=>ranks.includes(r.id)).sort((a,b)=>ranks.indexOf(b.id)-ranks.indexOf(a.id)).first();
+  if(action==='demote'&&!oldRank)throw Error('The member has no staff rank to demote.');if(oldRank&&ranks.indexOf(newRank.id)>=ranks.indexOf(oldRank.id))throw Error('Select a lower rank for demotion.');
   const log=await service.restrictedChannel(i.guild!,{...g,config:{...g.config,managementRoles:[...g.config.managementRoles,...ids.staffLogReaderRoles]}},'staffLogChannel','management'),reason=i.options.getString('reason',true);
-  const staffIds=staffRoleIds(g),desired=new Set<string>([...target.roles.cache.keys()].filter(id=>!staffIds.has(id)));for(const id of rankRoles(newRank.id))desired.add(id);await applyRoleChange(service,target,actor,bot,desired,reason,action);
+  const staffIds=promotionManagedRoles,desired=new Set<string>([...target.roles.cache.keys()].filter(id=>!staffIds.has(id)));for(const id of promotionBundle(newRank.id))desired.add(id);await applyRoleChange(service,target,actor,bot,desired,reason,action);
   const change={id:'RANK-'+randomUUID().slice(0,8),kind:action,member:user.id,oldRank:oldRank?.id??null,newRank:newRank.id,actor:i.user.id,reason,at:Date.now()};g.records[change.id]=change;await save(service,i.user.id,'staff.rank-change',change);
   await log.send(notice('Restricted Staff Rank Change',`**Member:** <@${user.id}>\n**Previous:** ${oldRank?.name??'Not previously ranked'}\n**New:** ${newRank.name}\n**Manager:** <@${i.user.id}>\n**Private reason:** ${reason}`,'blue',false));
   const vars={...service.variables(g,actor),member:`<@${user.id}>`,old_rank:oldRank?.name??'Not previously ranked',new_rank:newRank.name,manager:`<@${i.user.id}>`};
-  if(g.config.promotionChannel){const channel=await i.guild!.channels.fetch(g.config.promotionChannel);if(channel?.isTextBased()&&'send'in channel)await channel.send(render(service.template(g,action==='promote'?'promotion':'demotion'),vars));}
-  try{await user.send(notice('NYCRP Staff Rank Updated',`**Previous:** ${oldRank?.name??'Not previously ranked'}\n**New:** ${newRank.name}\n${action==='promote'?'Thank you for your service. Contact your supervisor for your next responsibilities.':'Your staff assignment has changed. Contact management privately with questions.'}`,'blue',false));}catch{await audit(i.user.id,'staff.rank-dm-failed',change.id,null,{});}
+  if(g.config.promotionChannel){const channel=await i.guild!.channels.fetch(g.config.promotionChannel);if(channel?.isTextBased()&&'send'in channel)await channel.send(render(service.template(g,'demotion'),vars));}
+  try{await user.send(notice('NYCRP Staff Rank Updated',`**Previous:** ${oldRank?.name??'Not previously ranked'}\n**New:** ${newRank.name}\nYour staff assignment has changed. Contact management privately with questions.`,'blue',false));}catch{await audit(i.user.id,'staff.rank-dm-failed',change.id,null,{});}
  }
  changed();await editReply(i,notice('Staff Record Saved','The authorized staff change and its audit record have been saved.'));
 }

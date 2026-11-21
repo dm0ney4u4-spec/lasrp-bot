@@ -464,3 +464,19 @@ model SessionHubEvent {
   complete Boolean @default(false)
   @@index([guildId, complete, createdAt], map: "SessionHubEvent_pending")
 }
+
+model PromotionOperation {
+ id String @id
+ guildId String
+ actorId String
+ memberId String
+ rankId String
+ reason String
+ status String @default("preview")
+ activeKey String? @unique
+ data Json
+ expiresAt DateTime @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @default(now()) @db.Timestamptz(3)
+ @@index([guildId,status,updatedAt], map: "PromotionOperation_recovery")
+}
