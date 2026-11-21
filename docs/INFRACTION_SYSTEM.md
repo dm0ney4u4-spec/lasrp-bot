@@ -17,7 +17,7 @@ Infraction changes require an executor-bound private confirmation. Permissions, 
 
 `config/infractions.js` contains channel IDs, disciplinary roles, authorized issuer roles, reviewer roles, artwork and investigation restrictions. The announcement and private audit channels reuse the existing configuration. New warning/strike third-level IDs are configured; obsolete third-level IDs remain import aliases. Notice has no role by default. Secrets stay in backend environment variables.
 
-The individual rank hierarchy is shared with promotions. Actors must have exactly one recognized individual rank and must outrank the target. Promotions also require the destination rank to be below the actor's individual rank. Auxiliary access roles, configured owner authorization and rank-lock overrides do not bypass this chain rule. A Director cannot promote another member to Director through the bot; the Discord owner must handle that manually. Self-infraction, protected owners and bot targets are rejected.
+The individual rank hierarchy is shared with promotions. Actors must have exactly one recognized individual rank and must outrank the target. Promotions also require the destination rank to be below the actor's individual rank. Auxiliary access roles, configured owner authorization and rank-lock overrides do not bypass this chain rule. Founder is recognized above Director for authorization only and cannot be assigned by /promote. A Director cannot promote another member to Director; a recognized Founder can, subject to existing destination permissions. Self-infraction, protected owners and bot targets are rejected.
 
 ## Enforcement and records
 

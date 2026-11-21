@@ -1,9 +1,9 @@
-import { promotionRanks, promotionManagedRoles } from '../../../config/promotions.js';
+import { promotionRanks, promotionManagedRoles, staffAuthorityRanks } from '../../../config/promotions.js';
 export function individualRank(roleIds, { allowUnranked = false } = {}) {
-  const roles = new Set(roleIds), found = promotionRanks.filter(r => roles.has(r.id));
+  const roles = new Set(roleIds), found = staffAuthorityRanks.filter(r => roles.has(r.id));
   if (found.length > 1) throw Error('Conflicting individual staff ranks were found. Leadership must reconcile the member roles.');
   if (!found.length) { if (allowUnranked && ![...roles].some(id => promotionManagedRoles.has(id))) return null; throw Error('The individual staff rank cannot be determined. Leadership must reconcile the member roles.'); }
-  return { ...found[0], index: promotionRanks.findIndex(r => r.id === found[0].id) };
+  return { ...found[0], index: staffAuthorityRanks.findIndex(r => r.id === found[0].id) };
 }
 /** @param {Iterable<string>} actorRoleIds @param {Iterable<string>} targetRoleIds @param {{destinationId?:string,allowRecruit?:boolean}} options */
 export function requireLowerRank(actorRoleIds, targetRoleIds, { destinationId, allowRecruit = false } = {}) {

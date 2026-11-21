@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import {Collection,PermissionsBitField,PermissionFlagsBits} from 'discord.js';
 import {PGlite} from '@electric-sql/pglite';
 import {PGLiteSocketServer} from '@electric-sql/pglite-socket';
-import {promotionConfig,promotionRanks,promotionManagedRoles,promotionBundle} from '../config/promotions.js';
+import {promotionConfig,promotionRanks,promotionManagedRoles,promotionBundle,staffAuthorityRanks} from '../config/promotions.js';
 import {promotionPlan,destinationAuthorized,sameRoles} from '../apps/bot/src/promotions/model.js';
 import {announcement,directMessage,promoteCommand} from '../apps/bot/src/promotions/views.js';
 import {PromotionRepository} from '../apps/bot/src/promotions/repository.js';
@@ -60,7 +60,7 @@ test('promotion PostgreSQL integration: confirmed bundles, permissions, rollback
    let ack=false,payload:any;await f.manager.interaction({isAutocomplete:()=>false,isChatInputCommand:()=>true,commandName:'promote',guildId:f.config.guildId,user:{id:'actor'},options:{getUser:()=>({id:'target'}),getString:(name:string)=>name==='rank'?'1529544875308089558':'Test reason'},deferReply:async()=>{ack=true;},editReply:async(p:any)=>{assert.equal(ack,true);payload=p;}});assert.ok(JSON.stringify(payload).includes('Promotion Successful'));assert.ok(!JSON.stringify(payload).includes('Confirm Promotion'));assert.ok(!JSON.stringify(payload).includes('nycp:confirm:'));assert.equal(f.effects.filter(x=>x.type==='announcement').length,1);assert.ok(f.target.roles.cache.has('1529544875308089558'));
   });
   await t.test('destination alternatives and rank-lock override are separate from general promotion permission',async()=>{
-   for(const group of promotionConfig.groups){const f=fixture({unranked:true});for(const permission of group.permissions){f.actor.roles.cache.clear();f.actor.roles.cache.set('actor-high',f.roles.get('actor-high'));f.actor.roles.cache.set('1529541841450565773',f.roles.get('1529541841450565773'));f.actor.roles.cache.set(permission,f.roles.get(permission));if(promotionRanks.some(r=>r.id===permission))f.actor.roles.cache.delete('1529541841450565773');await assert.doesNotReject(()=>f.manager.validate('actor','target',group.ranks[0].id));}}
+   for(const group of promotionConfig.groups){const f=fixture({unranked:true});for(const permission of group.permissions){f.actor.roles.cache.clear();f.actor.roles.cache.set('actor-high',f.roles.get('actor-high'));f.actor.roles.cache.set('1529541841450565773',f.roles.get('1529541841450565773'));f.actor.roles.cache.set(permission,f.roles.get(permission));if(staffAuthorityRanks.some(r=>r.id===permission))f.actor.roles.cache.delete('1529541841450565773');await assert.doesNotReject(()=>f.manager.validate('actor','target',group.ranks[0].id));}}
    const f=fixture();f.target.roles.cache.set(f.config.rankLockRoleId,f.roles.get(f.config.rankLockRoleId));await assert.rejects(()=>f.prepare(),/Rank Lock/);
    f.actor.roles.cache.set(f.config.rankLockOverrideRoleId,f.roles.get(f.config.rankLockOverrideRoleId));await assert.doesNotReject(()=>f.prepare());f.actor.roles.cache.delete('1529545703024627754');await assert.rejects(()=>f.manager.validate('actor','target','1529544875308089558'),/destination team/);
   });

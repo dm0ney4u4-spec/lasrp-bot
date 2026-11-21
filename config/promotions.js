@@ -17,6 +17,8 @@ export const promotionConfig = {
   ]
 };
 export const promotionRanks = promotionConfig.groups.flatMap(g => g.ranks);
+// Existing Founder authority is checked by the shared chain of command, never assigned by /promote.
+export const staffAuthorityRanks = [...promotionRanks, {id:'1529541363547504781',name:'Founder',group:'foundation'}];
 export const promotionManagedRoles = new Set([promotionConfig.staffRoleId, promotionConfig.staffSeparatorId, ...promotionConfig.groups.flatMap(g => [...g.auxiliary, ...g.ranks.map(r => r.id)])]);
 export function promotionBundle(rankId, config = promotionConfig) {
   const group = config.groups.find(g => g.ranks.some(r => r.id === rankId));

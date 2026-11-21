@@ -5,6 +5,15 @@ import {progress,durationMs,normalizeId,counterRoles} from '../apps/bot/src/infr
 test('shared individual hierarchy rejects auxiliary, unknown, equal, higher and conflicting staff ranks',()=>{
  const manager='1529543669000962209',junior='1529543672612388894';assert.doesNotThrow(()=>requireLowerRank([manager],[junior]));assert.throws(()=>requireLowerRank([manager],[manager]),/lower individual/);assert.throws(()=>requireLowerRank([junior],[manager]),/lower individual/);assert.throws(()=>individualRank(['1529545703024627754']),/cannot be determined/);assert.throws(()=>individualRank([manager,junior]),/Conflicting/);assert.throws(()=>requireLowerRank([manager],['1529544880626602146'],{destinationId:manager}),/destination/);assert.doesNotThrow(()=>requireLowerRank([manager],['1529544880626602146'],{destinationId:junior}));
 });
+test('Founder authority outranks Director without becoming an assignable promotion rank',()=>{
+ const founder='1529541363547504781',director='1529541841450565773';
+ assert.equal(individualRank([founder,'1529545703024627754']).name,'Founder');
+ assert.doesNotThrow(()=>requireLowerRank([founder],[director]));
+ assert.doesNotThrow(()=>requireLowerRank([founder],['1534212901122867272'],{destinationId:director}));
+ assert.throws(()=>requireLowerRank([director],[founder]),/lower individual/);
+ assert.throws(()=>individualRank([founder,director]),/Conflicting/);
+ assert.ok(!promotionRanks.some(r=>r.id===founder));
+});
 test('persistent warning/strike progression, generated consequence waivers and duration parsing',()=>{
  const rows:any[]=[],add=(type:string)=>{const c={id:String(rows.length),type,status:'active',data:{},createdAt:new Date(rows.length*1000)};rows.push(c);return c;};
  add('warning');assert.equal(progress(rows).warnings,1);add('warning');assert.equal(progress(rows).warnings,2);const third=add('warning');assert.equal(progress(rows).warnings,0);assert.equal(progress(rows).strikes,1);add('strike');assert.equal(progress(rows).strikes,2);add('strike');assert.equal(progress(rows).terminated,true);assert.equal(progress(rows).strikes,0);
